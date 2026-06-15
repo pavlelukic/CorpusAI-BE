@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: CorpusAI
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:corpusai}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+server:
+  port: 8080
+
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: ${OPENAI_API_KEY}
+      model-name: gpt-4o-mini
+      temperature: 0.7
+      log-requests: false
+      log-responses: false
+    embedding-model:
+      api-key: ${OPENAI_API_KEY}
+      model-name: text-embedding-3-small
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+corpusai:
+  subjects:
+    - id: softverski-procesi
+      display-name: "Softverski Procesi"
+      display-name-sr: "Софтверски процеси"
+      system-prompt-path: "prompts/softverski-procesi.txt"
+      documents-path: "documents/softverski-procesi"
+    - id: softverski-paterni
+      display-name: "Softverski Paterni"
+      display-name-sr: "Софтверски патерни"
+      system-prompt-path: "prompts/softverski-paterni.txt"
+      documents-path: "documents/softverski-paterni"
