@@ -12,12 +12,6 @@ server:
 
 langchain4j:
   open-ai:
-    chat-model:
-      api-key: ${OPENAI_API_KEY}
-      model-name: gpt-4o-mini
-      temperature: 0.7
-      log-requests: false
-      log-responses: false
     embedding-model:
       api-key: ${OPENAI_API_KEY}
       model-name: text-embedding-3-small
