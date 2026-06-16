@@ -4,9 +4,12 @@ import dev.langchain4j.model.anthropic.AnthropicChatModel;
 import dev.langchain4j.model.anthropic.AnthropicStreamingChatModel;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -27,6 +30,15 @@ public class ModelFactory {
                         @Value("${ANTHROPIC_API_KEY}") String anthropicApiKey) {
         this.openAiApiKey = openAiApiKey;
         this.anthropicApiKey = anthropicApiKey;
+    }
+
+    @Bean
+    public EmbeddingModel embeddingModel() {
+        return OpenAiEmbeddingModel.builder()
+                .apiKey(openAiApiKey)
+                .modelName("text-embedding-3-small")
+                .dimensions(1536)
+                .build();
     }
 
     public ChatModel chatModel(ModelProvider provider, String modelName) {
