@@ -28,3 +28,8 @@ corpusai:
       display-name-sr: "Софтверски патерни"
       system-prompt-path: "prompts/softverski-paterni.txt"
       documents-path: "documents/softverski-paterni"
+    - id: projektovanje-softvera
+      display-name: "Projektovanje Softvera"
+      display-name-sr: "Пројектовање софтвера"
+      system-prompt-path: "prompts/projektovanje-softvera.txt"
+      documents-path: "documents/projektovanje-softvera"
