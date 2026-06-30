@@ -23,7 +23,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStateException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleInternalState(IllegalStateException ex) {
-        return new ErrorResponse("INTERNAL_ERROR", ex.getMessage());
+        log.error("Internal state error", ex);
+        String message = ex.getMessage() != null ? ex.getMessage()
+                : ex.getCause() != null ? ex.getCause().getMessage()
+                  : "Internal error";
+        return new ErrorResponse("INTERNAL_ERROR", message);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
