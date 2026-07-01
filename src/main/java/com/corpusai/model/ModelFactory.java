@@ -2,6 +2,7 @@ package com.corpusai.model;
 
 import dev.langchain4j.model.anthropic.AnthropicChatModel;
 import dev.langchain4j.model.anthropic.AnthropicStreamingChatModel;
+import dev.langchain4j.model.chat.Capability;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -57,6 +58,8 @@ public class ModelFactory {
                     .apiKey(openAiApiKey)
                     .modelName(modelName)
                     .temperature(DEFAULT_TEMPERATURE)
+                    .strictJsonSchema(true)
+                    .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
                     .build();
             case ANTHROPIC -> AnthropicChatModel.builder()
                     .apiKey(anthropicApiKey)

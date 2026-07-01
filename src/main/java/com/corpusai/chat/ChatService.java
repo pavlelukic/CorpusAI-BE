@@ -5,12 +5,14 @@ import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.TokenStream;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+@Slf4j
 @Service
 public class ChatService {
 
@@ -34,6 +36,8 @@ public class ChatService {
                 .filter(s -> s.id().equals(subjectId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown Subject: " + subjectId));
+
+        log.info("Chat request - subject: '{}', session: '{}'", subjectId, sessionId);
 
         var assistant = AiServices.builder(TutorAssistant.class)
                 .streamingChatModel(modelFactory.streamingChatModel(ModelProvider.OPENAI, "gpt-4o-mini"))

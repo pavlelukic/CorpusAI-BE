@@ -9,8 +9,7 @@ import dev.langchain4j.data.document.splitter.DocumentSplitters;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -20,9 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@Slf4j
 public class DocumentIngestionService implements ApplicationRunner {
-
-    private static final Logger log = LoggerFactory.getLogger(DocumentIngestionService.class);
 
     private final SubjectsProperties subjectsProperties;
     private final EmbeddingModel embeddingModel;
