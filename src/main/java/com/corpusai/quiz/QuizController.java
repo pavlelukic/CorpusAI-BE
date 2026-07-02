@@ -19,6 +19,7 @@ public class QuizController {
     public List<Flashcard> generate(@PathVariable String subjectId,
                                     @RequestBody QuizRequest request) {
         int count = request.count() != null ? request.count() : 5;
-        return quizService.generate(subjectId, request.topic(), count);
+        String lang = request.lang() != null ? request.lang() : "sr";
+        return quizService.generate(subjectId, request.topic(), count, lang);
     }
 }
