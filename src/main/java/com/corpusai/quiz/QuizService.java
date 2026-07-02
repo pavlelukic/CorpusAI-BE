@@ -19,7 +19,8 @@ import java.util.stream.Collectors;
 @Service
 public class QuizService {
 
-    private static final int RETRIEVAL_CHUNK_COUNT = 8;
+    private static final int CHUNKS_PER_CARD = 2;
+    private static final int MAX_RETRIEVAL_CHUNKS = 20;
     private static final String BROAD_QUERY = "main topics key concepts overview";
 
     private final EmbeddingModel embeddingModel;
@@ -37,10 +38,12 @@ public class QuizService {
     public List<Flashcard> generate(String subjectId, String topic, int count) {
         log.info("Quiz request - subject: '{}', topic: '{}', count: {}", subjectId, topic, count);
 
+        int chunkCount = Math.min(count * CHUNKS_PER_CARD, MAX_RETRIEVAL_CHUNKS);
+
         var retriever = EmbeddingStoreContentRetriever.builder()
                 .embeddingStore(embeddingStore)
                 .embeddingModel(embeddingModel)
-                .maxResults(RETRIEVAL_CHUNK_COUNT)
+                .maxResults(chunkCount)
                 .filter(new IsEqualTo("subject_id", subjectId))
                 .build();
 
