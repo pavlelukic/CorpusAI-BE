@@ -31,17 +31,17 @@ public class ChatService {
         this.subjectsProperties = subjectsProperties;
     }
 
-    public TokenStream process(String subjectId, String sessionId, String message) {
+    public TokenStream process(String subjectId, String sessionId, String message, String lang) {
         var subject = subjectsProperties.subjects().stream()
                 .filter(s -> s.id().equals(subjectId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown Subject: " + subjectId));
 
-        log.info("Chat request - subject: '{}', session: '{}'", subjectId, sessionId);
+        log.info("Chat request - subject: '{}', session: '{}', lang: '{}'", subjectId, sessionId, lang);
 
         var assistant = AiServices.builder(TutorAssistant.class)
                 .streamingChatModel(modelFactory.streamingChatModel(ModelProvider.OPENAI, "gpt-4o-mini"))
-                .systemMessageProvider(memoryId -> loadPrompt(subject.systemPromptPath()))
+                .systemMessageProvider(memoryId -> buildSystemPrompt(subject.systemPromptPath(), lang))
                 .chatMemory(chatMemoryRegistry.getOrCreate(sessionId))
                 .retrievalAugmentor(retrievalAugmentorFactory.forSubject(subjectId))
                 .build();
@@ -55,6 +55,15 @@ public class ChatService {
         } catch (IOException ex) {
             throw new IllegalStateException("Could not load System Prompt: " + classPath, ex);
         }
+    }
+
+    private String buildSystemPrompt(String classPath, String lang) {
+        String base = loadPrompt(classPath);
+        String langInstruction = "sr".equals(lang)
+                ? "\nAlways respond in Serbian (Latin script, not Cyrillic), regardless of the language the User writes in."
+                : "\nAlways respond in English, regardless of the language the User writes in.";
+
+        return base + langInstruction;
     }
 
 }

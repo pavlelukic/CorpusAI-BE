@@ -35,8 +35,8 @@ public class QuizService {
         this.modelFactory = modelFactory;
     }
 
-    public List<Flashcard> generate(String subjectId, String topic, int count) {
-        log.info("Quiz request - subject: '{}', topic: '{}', count: {}", subjectId, topic, count);
+    public List<Flashcard> generate(String subjectId, String topic, int count, String lang) {
+        log.info("Quiz request - subject: '{}', topic: '{}', count: {}, lang: {}", subjectId, topic, count, lang);
 
         int chunkCount = Math.min(count * CHUNKS_PER_CARD, MAX_RETRIEVAL_CHUNKS);
 
@@ -60,6 +60,6 @@ public class QuizService {
                 .chatModel(modelFactory.chatModel(ModelProvider.OPENAI, "gpt-4.1"))
                 .build();
 
-        return generator.generate(content, count);
+        return generator.generate(content, count, lang);
     }
 }

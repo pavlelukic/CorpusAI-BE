@@ -23,7 +23,8 @@ public class ChatController {
                               @Valid @RequestBody ChatRequest request) {
         var emitter = new SseEmitter(300_000L);
 
-        chatService.process(subjectId, request.sessionId(), request.message())
+        chatService.process(subjectId, request.sessionId(), request.message(),
+                        request.lang() != null ? request.lang() : "sr")
                 .onPartialResponse(token -> {
                     try {
                         emitter.send(SseEmitter.event()
