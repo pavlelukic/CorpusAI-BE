@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -50,6 +51,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
     public ErrorResponse handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
         return new ErrorResponse("UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleNotFound(NoResourceFoundException ex) {
+        return new ErrorResponse("NOT_FOUND", "The requested resource was not found");
     }
 
     @ExceptionHandler(Exception.class)
