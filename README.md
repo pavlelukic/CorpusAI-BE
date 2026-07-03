@@ -77,15 +77,17 @@ Restart the app — new files are detected and ingested automatically.
 ```json
 {
   "sessionId": "unique-session-id",
-  "message": "What is the Waterfall model?"
+  "message": "Šta je to vodopad (waterfall) model?",
+  "lang": "sr"
 }
 ```
 
 ### Quiz request
 ```json
 {
-  "topic": "design patterns",
-  "count": 5
+  "topic": "java design patterns",
+  "count": 5,
+  "lang": "en"
 }
 ```
 
