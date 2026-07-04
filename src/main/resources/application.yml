@@ -19,8 +19,8 @@ management:
 corpusai:
   subjects:
     - id: softverski-procesi
-      display-name: "Softverski Procesi"
-      display-name-sr: "Софтверски процеси"
+      display-name: "Softverski Proces"
+      display-name-sr: "Софтверски процес"
       system-prompt-path: "prompts/softverski-procesi.txt"
       documents-path: "documents/softverski-procesi"
     - id: softverski-paterni
