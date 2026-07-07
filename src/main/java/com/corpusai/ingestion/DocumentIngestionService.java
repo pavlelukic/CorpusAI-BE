@@ -8,6 +8,8 @@ import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentPa
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
+import dev.langchain4j.store.embedding.filter.comparison.IsEqualTo;
+import dev.langchain4j.store.embedding.filter.logical.And;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -16,7 +18,9 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.FileSystems;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @Slf4j
@@ -50,9 +54,11 @@ public class DocumentIngestionService implements ApplicationRunner {
             List<Document> docs = loadDocuments(subject.documentsPath());
 
             int ingested = 0;
+            Set<String> onDisk = new HashSet<>();
             for (Document doc : docs) {
                 String sourceFile = doc.metadata().getString(Document.FILE_NAME);
                 if (sourceFile == null) sourceFile = "unknown";
+                onDisk.add(sourceFile);
 
                 String contentHash = IngestionHashTracker.sha256(doc.text());
 
@@ -68,8 +74,26 @@ public class DocumentIngestionService implements ApplicationRunner {
                 log.info("Ingested: {}/{}", subject.id(), sourceFile);
             }
 
-            log.info("Ingestion complete for {}: {} new documents.", subject.id(), ingested);
+            int removed = removeStaleDocuments(subject.id(), onDisk);
+
+            log.info("Ingestion complete for {}: {} new documents, {} stale removed.",
+                    subject.id(), ingested, removed);
         }
+    }
+
+    private int removeStaleDocuments(String subjectId, Set<String> onDisk) {
+        int removed = 0;
+        for (String sourceFile : hashTracker.sourceFilesFor(subjectId)) {
+            if (onDisk.contains(sourceFile)) continue;
+
+            embeddingStore.removeAll(new And(
+                    new IsEqualTo("subject_id", subjectId),
+                    new IsEqualTo("file_name", sourceFile)));
+            hashTracker.deleteIngestionRecord(subjectId, sourceFile);
+            removed++;
+            log.info("Removed stale ingestion for {}/{}", subjectId, sourceFile);
+        }
+        return removed;
     }
 
     private List<Document> loadDocuments(String documentsPath) {

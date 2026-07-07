@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.List;
 
 @Repository
 public class IngestionHashTracker {
@@ -39,6 +40,18 @@ public class IngestionHashTracker {
                 ON CONFLICT (subject_id, source_file)
                 DO UPDATE SET content_hash = EXCLUDED.content_hash, ingested_at = now()
                 """, subjectId, sourceFile, contentHash);
+    }
+
+    public List<String> sourceFilesFor(String subjectId) {
+        return jdbc.queryForList(
+                "SELECT source_file FROM ingestion_log WHERE subject_id = ?",
+                String.class, subjectId);
+    }
+
+    public void deleteIngestionRecord(String subjectId, String sourceFile) {
+        jdbc.update(
+                "DELETE FROM ingestion_log WHERE subject_id = ? AND source_file = ?",
+                subjectId, sourceFile);
     }
 
     public static String sha256(String text) {
