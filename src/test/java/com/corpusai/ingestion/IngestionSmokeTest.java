@@ -25,10 +25,10 @@ class IngestionSmokeTest {
     void retrievedChunksAreFilteredBySubjectId() {
         var queryEmbedding = embeddingModel.embed(TextSegment.from("softver")).content();
 
-        var procesiResults = embeddingStore.search(EmbeddingSearchRequest.builder()
+        var procesResults = embeddingStore.search(EmbeddingSearchRequest.builder()
                 .queryEmbedding(queryEmbedding)
                 .maxResults(5)
-                .filter(new IsEqualTo("subject_id", "softverski-procesi"))
+                .filter(new IsEqualTo("subject_id", "softverski-proces"))
                 .build());
 
         var paterniResults = embeddingStore.search(EmbeddingSearchRequest.builder()
@@ -37,12 +37,12 @@ class IngestionSmokeTest {
                 .filter(new IsEqualTo("subject_id", "softverski-paterni"))
                 .build());
 
-        assertThat(procesiResults.matches()).isNotEmpty();
+        assertThat(procesResults.matches()).isNotEmpty();
         assertThat(paterniResults.matches()).isNotEmpty();
 
-        procesiResults.matches().forEach(match ->
+        procesResults.matches().forEach(match ->
                 assertThat(match.embedded().metadata().getString("subject_id"))
-                        .isEqualTo("softverski-procesi"));
+                        .isEqualTo("softverski-proces"));
 
         paterniResults.matches().forEach(match ->
                 assertThat(match.embedded().metadata().getString("subject_id"))
