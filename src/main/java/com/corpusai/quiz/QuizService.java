@@ -1,5 +1,7 @@
 package com.corpusai.quiz;
 
+import com.corpusai.auth.AuthenticatedUser;
+import com.corpusai.auth.SubjectAccessService;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
 import com.corpusai.subject.SubjectService;
@@ -28,19 +30,23 @@ public class QuizService {
     private final PgVectorEmbeddingStore embeddingStore;
     private final ModelFactory modelFactory;
     private final SubjectService subjectService;
+    private final SubjectAccessService subjectAccessService;
 
     public QuizService(EmbeddingModel embeddingModel,
                        PgVectorEmbeddingStore embeddingStore,
                        ModelFactory modelFactory,
-                       SubjectService subjectService) {
+                       SubjectService subjectService,
+                       SubjectAccessService subjectAccessService) {
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.modelFactory = modelFactory;
         this.subjectService = subjectService;
+        this.subjectAccessService = subjectAccessService;
     }
 
-    public List<Flashcard> generate(String subjectId, String topic, int count, String lang) {
+    public List<Flashcard> generate(AuthenticatedUser principal, String subjectId, String topic, int count, String lang) {
         subjectService.findById(subjectId);
+        subjectAccessService.checkAccess(principal, subjectId);
 
         log.info("Quiz request - subject: '{}', topic: '{}', count: {}, lang: {}", subjectId, topic, count, lang);
 

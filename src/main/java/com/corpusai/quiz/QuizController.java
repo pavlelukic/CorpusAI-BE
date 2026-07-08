@@ -1,6 +1,8 @@
 package com.corpusai.quiz;
 
+import com.corpusai.auth.AuthenticatedUser;
 import com.corpusai.quiz.dto.QuizRequest;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,9 +19,10 @@ public class QuizController {
 
     @PostMapping("/{subjectId}/generate")
     public List<Flashcard> generate(@PathVariable String subjectId,
-                                    @RequestBody QuizRequest request) {
+                                    @RequestBody QuizRequest request,
+                                    @AuthenticationPrincipal AuthenticatedUser principal) {
         int count = request.count() != null ? request.count() : 5;
         String lang = request.lang() != null ? request.lang() : "sr";
-        return quizService.generate(subjectId, request.topic(), count, lang);
+        return quizService.generate(principal, subjectId, request.topic(), count, lang);
     }
 }

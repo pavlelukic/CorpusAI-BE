@@ -1,5 +1,7 @@
 package com.corpusai.chat;
 
+import com.corpusai.auth.AuthenticatedUser;
+import com.corpusai.auth.SubjectAccessService;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
 import com.corpusai.subject.Subject;
@@ -17,19 +19,23 @@ public class ChatService {
     private final RetrievalAugmentorFactory retrievalAugmentorFactory;
     private final ChatMemoryRegistry chatMemoryRegistry;
     private final SubjectService subjectService;
+    private final SubjectAccessService subjectAccessService;
 
     public ChatService(ModelFactory modelFactory,
                        RetrievalAugmentorFactory retrievalAugmentorFactory,
                        ChatMemoryRegistry chatMemoryRegistry,
-                       SubjectService subjectService) {
+                       SubjectService subjectService,
+                       SubjectAccessService subjectAccessService) {
         this.modelFactory = modelFactory;
         this.retrievalAugmentorFactory = retrievalAugmentorFactory;
         this.chatMemoryRegistry = chatMemoryRegistry;
         this.subjectService = subjectService;
+        this.subjectAccessService = subjectAccessService;
     }
 
-    public TokenStream process(String subjectId, String sessionId, String message, String lang) {
+    public TokenStream process(AuthenticatedUser principal, String subjectId, String sessionId, String message, String lang) {
         Subject subject = subjectService.findById(subjectId);
+        subjectAccessService.checkAccess(principal, subjectId);
 
         log.info("Chat request - subject: '{}', session: '{}', lang: '{}'", subjectId, sessionId, lang);
 

@@ -1,8 +1,10 @@
 package com.corpusai.chat;
 
+import com.corpusai.auth.AuthenticatedUser;
 import com.corpusai.chat.dto.ChatChunkResponse;
 import com.corpusai.chat.dto.ChatRequest;
 import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -20,10 +22,11 @@ public class ChatController {
 
     @PostMapping("/{subjectId}/message")
     public SseEmitter message(@PathVariable String subjectId,
-                              @Valid @RequestBody ChatRequest request) {
+                              @Valid @RequestBody ChatRequest request,
+                              @AuthenticationPrincipal AuthenticatedUser principal) {
         var emitter = new SseEmitter(300_000L);
 
-        chatService.process(subjectId, request.sessionId(), request.message(),
+        chatService.process(principal, subjectId, request.sessionId(), request.message(),
                         request.lang() != null ? request.lang() : "sr")
                 .onPartialResponse(token -> {
                     try {
