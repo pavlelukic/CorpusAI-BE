@@ -1,7 +1,7 @@
 package com.corpusai.ingestion;
 
-import com.corpusai.config.SubjectsProperties;
 import com.corpusai.subject.Subject;
+import com.corpusai.subject.SubjectService;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.loader.ClassPathDocumentLoader;
 import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
@@ -26,16 +26,18 @@ import java.util.Set;
 @Slf4j
 public class DocumentIngestionService implements ApplicationRunner {
 
-    private final SubjectsProperties subjectsProperties;
+    private static final String DOCUMENTS_CLASSPATH_PREFIX = "documents/";
+
+    private final SubjectService subjectService;
     private final EmbeddingModel embeddingModel;
     private final PgVectorEmbeddingStore embeddingStore;
     private final IngestionHashTracker hashTracker;
 
-    public DocumentIngestionService(SubjectsProperties subjectsProperties,
+    public DocumentIngestionService(SubjectService subjectService,
                                     EmbeddingModel embeddingModel,
                                     PgVectorEmbeddingStore embeddingStore,
                                     IngestionHashTracker hashTracker) {
-        this.subjectsProperties = subjectsProperties;
+        this.subjectService = subjectService;
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.hashTracker = hashTracker;
@@ -49,9 +51,9 @@ public class DocumentIngestionService implements ApplicationRunner {
                 .embeddingStore(embeddingStore)
                 .build();
 
-        for (Subject subject : subjectsProperties.subjects()) {
-            log.info("Checking ingestion for subject: {}", subject.id());
-            List<Document> docs = loadDocuments(subject.documentsPath());
+        for (Subject subject : subjectService.listActive()) {
+            log.info("Checking ingestion for subject: {}", subject.getId());
+            List<Document> docs = loadDocuments(DOCUMENTS_CLASSPATH_PREFIX + subject.getId());
 
             int ingested = 0;
             Set<String> onDisk = new HashSet<>();
@@ -62,22 +64,22 @@ public class DocumentIngestionService implements ApplicationRunner {
 
                 String contentHash = IngestionHashTracker.sha256(doc.text());
 
-                if(hashTracker.alreadyIngested(subject.id(), sourceFile, contentHash)) {
-                    log.debug("Skipping unchanged: {}/{}", subject.id(), sourceFile);
+                if(hashTracker.alreadyIngested(subject.getId(), sourceFile, contentHash)) {
+                    log.debug("Skipping unchanged: {}/{}", subject.getId(), sourceFile);
                     continue;
                 }
 
-                doc.metadata().put("subject_id", subject.id());
+                doc.metadata().put("subject_id", subject.getId());
                 ingestor.ingest(doc);
-                hashTracker.recordIngestion(subject.id(), sourceFile, contentHash);
+                hashTracker.recordIngestion(subject.getId(), sourceFile, contentHash);
                 ingested++;
-                log.info("Ingested: {}/{}", subject.id(), sourceFile);
+                log.info("Ingested: {}/{}", subject.getId(), sourceFile);
             }
 
-            int removed = removeStaleDocuments(subject.id(), onDisk);
+            int removed = removeStaleDocuments(subject.getId(), onDisk);
 
             log.info("Ingestion complete for {}: {} new documents, {} stale removed.",
-                    subject.id(), ingested, removed);
+                    subject.getId(), ingested, removed);
         }
     }
 
