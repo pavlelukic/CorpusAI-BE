@@ -58,7 +58,7 @@ skip already-ingested files via SHA-256 hash tracking.
 Drop PDF, Markdown, or `.txt` files into the subject's documents folder:
 
 ```
-src/main/resources/documents/softverski-procesi/
+src/main/resources/documents/softverski-proces/
 src/main/resources/documents/softverski-paterni/
 src/main/resources/documents/projektovanje-softvera/
 ```

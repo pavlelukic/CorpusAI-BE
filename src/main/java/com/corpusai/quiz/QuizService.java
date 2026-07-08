@@ -2,6 +2,7 @@ package com.corpusai.quiz;
 
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
+import com.corpusai.subject.SubjectService;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
@@ -26,16 +27,21 @@ public class QuizService {
     private final EmbeddingModel embeddingModel;
     private final PgVectorEmbeddingStore embeddingStore;
     private final ModelFactory modelFactory;
+    private final SubjectService subjectService;
 
     public QuizService(EmbeddingModel embeddingModel,
                        PgVectorEmbeddingStore embeddingStore,
-                       ModelFactory modelFactory) {
+                       ModelFactory modelFactory,
+                       SubjectService subjectService) {
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.modelFactory = modelFactory;
+        this.subjectService = subjectService;
     }
 
     public List<Flashcard> generate(String subjectId, String topic, int count, String lang) {
+        subjectService.findById(subjectId);
+
         log.info("Quiz request - subject: '{}', topic: '{}', count: {}, lang: {}", subjectId, topic, count, lang);
 
         int chunkCount = Math.min(count * CHUNKS_PER_CARD, MAX_RETRIEVAL_CHUNKS);

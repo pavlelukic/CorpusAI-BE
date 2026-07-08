@@ -1,6 +1,5 @@
 package com.corpusai.subject;
 
-import com.corpusai.config.SubjectsProperties;
 import com.corpusai.subject.dto.SubjectResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,16 +11,16 @@ import java.util.List;
 @RequestMapping("/api/subjects")
 public class SubjectController {
 
-    private final SubjectsProperties subjectsProperties;
+    private final SubjectService subjectService;
 
-    public SubjectController(SubjectsProperties subjectsProperties) {
-        this.subjectsProperties = subjectsProperties;
+    public SubjectController(SubjectService subjectService) {
+        this.subjectService = subjectService;
     }
 
     @GetMapping
     public List<SubjectResponse> list() {
-        return subjectsProperties.subjects().stream()
-                .map(s -> new SubjectResponse(s.id(), s.displayName(), s.displayNameSr()))
+        return subjectService.listActive().stream()
+                .map(s -> new SubjectResponse(s.getId(), s.getDisplayName(), s.getDisplayNameSr()))
                 .toList();
     }
 }
