@@ -36,3 +36,6 @@ Thumbs.db
 *.env
 application-local.properties
 application-local.yml
+
+# Document storage (filesystem-backed, not part of the repo)
+storage/
