@@ -2,6 +2,7 @@ package com.corpusai.config;
 
 import com.corpusai.auth.DuplicateEmailException;
 import com.corpusai.config.dto.ErrorResponse;
+import com.corpusai.subject.DuplicateSubjectNameException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -27,6 +28,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateEmailException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleDuplicateEmail(DuplicateEmailException ex) {
+        return new ErrorResponse("CONFLICT", ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateSubjectNameException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleDuplicateSubjectName(DuplicateSubjectNameException ex) {
         return new ErrorResponse("CONFLICT", ex.getMessage());
     }
 

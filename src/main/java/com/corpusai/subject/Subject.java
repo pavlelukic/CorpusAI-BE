@@ -38,6 +38,17 @@ public class Subject {
         this.displayName = displayName;
         this.displayNameSr = displayNameSr;
         this.systemPrompt = systemPrompt;
+        this.createdAt = Instant.now();
+    }
+
+    public void updateDetails(String displayName, String displayNameSr, String systemPrompt) {
+        this.displayName = displayName;
+        this.displayNameSr = displayNameSr;
+        this.systemPrompt = systemPrompt;
+    }
+
+    public void archive() {
+        this.archived = true;
     }
 
     public String getId() {
