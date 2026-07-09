@@ -58,6 +58,11 @@ public class Document {
         this.uploadedAt = Instant.now();
     }
 
+    public void markPending() {
+        this.status = DocumentStatus.PENDING;
+        this.errorMessage = null;
+    }
+
     public void markIngesting() {
         this.status = DocumentStatus.INGESTING;
         this.errorMessage = null;

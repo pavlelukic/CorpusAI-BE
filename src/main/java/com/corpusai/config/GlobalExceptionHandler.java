@@ -2,6 +2,8 @@ package com.corpusai.config;
 
 import com.corpusai.auth.DuplicateEmailException;
 import com.corpusai.config.dto.ErrorResponse;
+import com.corpusai.document.DocumentNotFoundException;
+import com.corpusai.document.InvalidFileTypeException;
 import com.corpusai.subject.DuplicateSubjectNameException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -35,6 +38,24 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleDuplicateSubjectName(DuplicateSubjectNameException ex) {
         return new ErrorResponse("CONFLICT", ex.getMessage());
+    }
+
+    @ExceptionHandler(DocumentNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleDocumentNotFound(DocumentNotFoundException ex) {
+        return new ErrorResponse("NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidFileTypeException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleInvalidFileType(InvalidFileTypeException ex) {
+        return new ErrorResponse("BAD_REQUEST", ex.getMessage());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public ErrorResponse handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        return new ErrorResponse("PAYLOAD_TOO_LARGE", "Uploaded file exceeds the maximum allowed size");
     }
 
     @ExceptionHandler(AuthenticationException.class)

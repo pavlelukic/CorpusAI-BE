@@ -1,6 +1,7 @@
 package com.corpusai.ingestion;
 
 import com.corpusai.document.Document;
+import com.corpusai.document.DocumentNotFoundException;
 import com.corpusai.document.DocumentRepository;
 import dev.langchain4j.data.document.DocumentParser;
 import dev.langchain4j.data.document.loader.FileSystemDocumentLoader;
@@ -16,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -91,6 +94,24 @@ public class IngestionService {
     @Async
     public void ingestAsync(UUID documentId) {
         ingest(documentId);
+    }
+
+    public void delete(UUID documentId) {
+        Document document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new DocumentNotFoundException(documentId));
+
+        embeddingStore.removeAll(new And(
+                new IsEqualTo("subject_id", document.getSubjectId()),
+                new IsEqualTo("file_name", document.getFileName())));
+
+        try {
+            Files.deleteIfExists(resolvePath(document));
+        } catch (IOException ex) {
+            log.warn("Could not delete file on disk for document {}/{}: {}",
+                    document.getSubjectId(), document.getFileName(), ex.getMessage());
+        }
+
+        documentRepository.delete(document);
     }
 
     private DocumentParser parserFor(Path path) {
