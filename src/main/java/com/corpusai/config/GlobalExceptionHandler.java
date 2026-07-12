@@ -1,6 +1,7 @@
 package com.corpusai.config;
 
 import com.corpusai.auth.DuplicateEmailException;
+import com.corpusai.chat.ChatSessionNotFoundException;
 import com.corpusai.config.dto.ErrorResponse;
 import com.corpusai.document.DocumentNotFoundException;
 import com.corpusai.document.InvalidFileTypeException;
@@ -43,6 +44,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DocumentNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleDocumentNotFound(DocumentNotFoundException ex) {
+        return new ErrorResponse("NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler(ChatSessionNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleChatSessionNotFound(ChatSessionNotFoundException ex) {
         return new ErrorResponse("NOT_FOUND", ex.getMessage());
     }
 

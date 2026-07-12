@@ -2,16 +2,28 @@ package com.corpusai.chat;
 
 import com.corpusai.auth.AuthenticatedUser;
 import com.corpusai.chat.dto.ChatChunkResponse;
-import com.corpusai.chat.dto.ChatRequest;
+import com.corpusai.chat.dto.ChatDoneResponse;
+import com.corpusai.chat.dto.ChatSessionResponse;
+import com.corpusai.chat.dto.CreateChatSessionRequest;
+import com.corpusai.chat.dto.SendMessageRequest;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/chat")
+@RequestMapping("/api/chats")
 public class ChatController {
 
     private final ChatService chatService;
@@ -20,15 +32,24 @@ public class ChatController {
         this.chatService = chatService;
     }
 
-    @PostMapping("/{subjectId}/message")
-    public SseEmitter message(@PathVariable String subjectId,
-                              @Valid @RequestBody ChatRequest request,
-                              @AuthenticationPrincipal AuthenticatedUser principal) {
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ChatSessionResponse createSession(@Valid @RequestBody CreateChatSessionRequest request,
+                                             @AuthenticationPrincipal AuthenticatedUser principal) {
+        ChatSession session = chatService.createSession(principal, request.subjectId(), request.lang(), request.provider());
+        return toResponse(session);
+    }
+
+    @PostMapping("/{sessionId}/messages")
+    public SseEmitter sendMessage(@PathVariable UUID sessionId,
+                                  @Valid @RequestBody SendMessageRequest request,
+                                  @AuthenticationPrincipal AuthenticatedUser principal) {
         var emitter = new SseEmitter(300_000L);
 
-        chatService.process(principal, subjectId, request.sessionId(), request.message(),
-                        request.lang() != null ? request.lang() : "sr")
-                .onPartialResponse(token -> {
+        var tokenStream = chatService.process(principal, sessionId, request.message());
+        Instant startedAt = Instant.now();
+
+        tokenStream.onPartialResponse(token -> {
                     try {
                         emitter.send(SseEmitter.event()
                                 .name("token")
@@ -37,11 +58,31 @@ public class ChatController {
                         emitter.completeWithError(ex);
                     }
                 })
-                .onCompleteResponse(response -> emitter.complete())
+                .onCompleteResponse(response -> {
+                    try {
+                        long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
+                        UUID messageId = chatService.latestMessageId(sessionId);
+                        var usage = response.tokenUsage();
+                        emitter.send(SseEmitter.event()
+                                .name("done")
+                                .data(new ChatDoneResponse(messageId,
+                                        usage != null ? usage.inputTokenCount() : null,
+                                        usage != null ? usage.outputTokenCount() : null,
+                                        latencyMs)));
+                        emitter.complete();
+                    } catch (IOException ex) {
+                        emitter.completeWithError(ex);
+                    }
+                })
                 .onError(emitter::completeWithError)
                 .start();
 
         return emitter;
+    }
+
+    private ChatSessionResponse toResponse(ChatSession session) {
+        return new ChatSessionResponse(session.getId(), session.getTitle(), session.getSubjectId(),
+                session.getLang(), session.getProvider(), session.getCreatedAt());
     }
 
 }

@@ -120,11 +120,11 @@ class SecurityIntegrationTest {
         register(email, "password123", "Test User");
         String token = login(email, "password123");
 
-        mockMvc.perform(post("/api/chat/softverski-proces/message")
+        mockMvc.perform(post("/api/chats")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"sessionId":"s1","message":"hello"}
+                                {"subjectId":"softverski-proces","lang":"sr","provider":"OPENAI"}
                                 """))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error").value("FORBIDDEN"));
