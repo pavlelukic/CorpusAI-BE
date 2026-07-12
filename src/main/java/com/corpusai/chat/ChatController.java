@@ -3,16 +3,20 @@ package com.corpusai.chat;
 import com.corpusai.auth.AuthenticatedUser;
 import com.corpusai.chat.dto.ChatChunkResponse;
 import com.corpusai.chat.dto.ChatDoneResponse;
+import com.corpusai.chat.dto.ChatMessageResponse;
 import com.corpusai.chat.dto.ChatSessionResponse;
 import com.corpusai.chat.dto.CreateChatSessionRequest;
 import com.corpusai.chat.dto.SendMessageRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -20,6 +24,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -38,6 +43,28 @@ public class ChatController {
                                              @AuthenticationPrincipal AuthenticatedUser principal) {
         ChatSession session = chatService.createSession(principal, request.subjectId(), request.lang(), request.provider());
         return toResponse(session);
+    }
+
+    @GetMapping
+    public List<ChatSessionResponse> listSessions(@RequestParam String subjectId,
+                                                  @AuthenticationPrincipal AuthenticatedUser principal) {
+        return chatService.listSessions(principal, subjectId).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @GetMapping("/{sessionId}/messages")
+    public List<ChatMessageResponse> getMessages(@PathVariable UUID sessionId,
+                                                 @AuthenticationPrincipal AuthenticatedUser principal) {
+        return chatService.getTranscript(principal, sessionId).stream()
+                .map(this::toMessageResponse)
+                .toList();
+    }
+
+    @DeleteMapping("/{sessionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteSession(@PathVariable UUID sessionId, @AuthenticationPrincipal AuthenticatedUser principal) {
+        chatService.deleteSession(principal, sessionId);
     }
 
     @PostMapping("/{sessionId}/messages")
@@ -83,6 +110,10 @@ public class ChatController {
     private ChatSessionResponse toResponse(ChatSession session) {
         return new ChatSessionResponse(session.getId(), session.getTitle(), session.getSubjectId(),
                 session.getLang(), session.getProvider(), session.getCreatedAt());
+    }
+
+    private ChatMessageResponse toMessageResponse(ChatMessage message) {
+        return new ChatMessageResponse(message.getId(), message.getRole(), message.getContent(), message.getCreatedAt());
     }
 
 }

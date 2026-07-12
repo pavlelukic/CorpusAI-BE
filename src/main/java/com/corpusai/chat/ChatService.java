@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -71,6 +72,8 @@ public class ChatService {
                 .systemMessageProvider(memoryId -> buildSystemPrompt(subject, session.getLang()))
                 .chatMemory(chatMemoryRegistry.getOrCreate(sessionId))
                 .retrievalAugmentor(retrievalAugmentorFactory.forSubject(session.getSubjectId()))
+                // We persist only what the user actually typed
+                .storeRetrievedContentInChatMemory(false)
                 .build();
 
         return assistant.chat(message);
@@ -80,6 +83,21 @@ public class ChatService {
         return chatMessageRepository.findFirstBySessionIdOrderByCreatedAtDesc(sessionId)
                 .map(ChatMessage::getId)
                 .orElse(null);
+    }
+
+    public List<ChatSession> listSessions(AuthenticatedUser principal, String subjectId) {
+        subjectService.findById(subjectId);
+        return chatSessionRepository.findAllByUserIdAndSubjectIdOrderByUpdatedAtDesc(principal.id(), subjectId);
+    }
+
+    public List<ChatMessage> getTranscript(AuthenticatedUser principal, UUID sessionId) {
+        ChatSession session = resolveOwnedSession(principal, sessionId);
+        return chatMessageRepository.findAllBySessionIdOrderByCreatedAtAsc(session.getId());
+    }
+
+    public void deleteSession(AuthenticatedUser principal, UUID sessionId) {
+        ChatSession session = resolveOwnedSession(principal, sessionId);
+        chatSessionRepository.delete(session);
     }
 
     private ChatSession resolveOwnedSession(AuthenticatedUser principal, UUID sessionId) {
