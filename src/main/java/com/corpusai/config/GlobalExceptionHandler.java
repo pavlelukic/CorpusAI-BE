@@ -5,6 +5,7 @@ import com.corpusai.chat.ChatSessionNotFoundException;
 import com.corpusai.config.dto.ErrorResponse;
 import com.corpusai.document.DocumentNotFoundException;
 import com.corpusai.document.InvalidFileTypeException;
+import com.corpusai.flashcards.FlashcardSetNotFoundException;
 import com.corpusai.subject.DuplicateSubjectNameException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -50,6 +51,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ChatSessionNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleChatSessionNotFound(ChatSessionNotFoundException ex) {
+        return new ErrorResponse("NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler(FlashcardSetNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleFlashcardSetNotFound(FlashcardSetNotFoundException ex) {
         return new ErrorResponse("NOT_FOUND", ex.getMessage());
     }
 
