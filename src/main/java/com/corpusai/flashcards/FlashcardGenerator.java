@@ -1,12 +1,11 @@
-package com.corpusai.quiz;
+package com.corpusai.flashcards;
 
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 
-import java.util.List;
-
-interface QuizGenerator {
+interface FlashcardGenerator {
 
     @SystemMessage("""
             You are an expert quiz creator for University Students.
@@ -26,8 +25,8 @@ interface QuizGenerator {
     @UserMessage("""
             Content:
             {{content}}
-            
+
             Generate {{count}} flashcards from the above content.
             """)
-    List<Flashcard> generate(@V("content") String content, @V("count") int count, @V("lang") String lang);
+    Result<GeneratedFlashcards> generate(@V("content") String content, @V("count") int count, @V("lang") String lang);
 }

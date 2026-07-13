@@ -61,6 +61,11 @@ public class ModelFactory {
                     .strictJsonSchema(true)
                     .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
                     .build();
+            // Anthropic deliberately does NOT advertise RESPONSE_FORMAT_JSON_SCHEMA. langchain4j
+            // 1.10.0 emits the now-rejected `output_format` field for Anthropic's native structured
+            // output, so AiServices instead appends prompt-based JSON format instructions. Structured
+            // callers (e.g. FlashcardGenerator) therefore return a POJO wrapper rather than a bare
+            // List, since langchain4j's collection format-instructions path is unimplemented.
             case ANTHROPIC -> AnthropicChatModel.builder()
                     .apiKey(anthropicApiKey)
                     .modelName(modelName)

@@ -1,6 +1,5 @@
 package com.corpusai.flashcards;
 
-import com.corpusai.quiz.Difficulty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

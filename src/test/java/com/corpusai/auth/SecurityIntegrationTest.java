@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // Runs against the real dev Postgres (same as IngestionSmokeTest); no LLM keys needed
-// since chat/quiz requests here are rejected by the access check before any model call.
+// since chat/flashcard requests here are rejected by the access check before any model call.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
@@ -115,7 +115,7 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    void chatAndQuizAreForbiddenWithoutSubjectAccess() throws Exception {
+    void chatAndFlashcardsAreForbiddenWithoutSubjectAccess() throws Exception {
         String email = uniqueEmail();
         register(email, "password123", "Test User");
         String token = login(email, "password123");
@@ -129,7 +129,7 @@ class SecurityIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error").value("FORBIDDEN"));
 
-        mockMvc.perform(post("/api/quiz/softverski-proces/generate")
+        mockMvc.perform(post("/api/flashcards/softverski-proces/generate")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))

@@ -1,8 +1,8 @@
-package com.corpusai.quiz;
+package com.corpusai.flashcards;
 
-public record Flashcard (
+public record GeneratedFlashcard(
         String question,
         String answer,
         Difficulty difficulty,
         String sourceHint
-){}
+) {}
