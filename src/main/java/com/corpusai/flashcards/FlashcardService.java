@@ -4,6 +4,7 @@ import com.corpusai.auth.AuthenticatedUser;
 import com.corpusai.auth.SubjectAccessService;
 import com.corpusai.flashcards.dto.FlashcardResponse;
 import com.corpusai.flashcards.dto.FlashcardSetResponse;
+import com.corpusai.flashcards.dto.FlashcardSetSummaryResponse;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
 import com.corpusai.subject.SubjectService;
@@ -17,11 +18,13 @@ import dev.langchain4j.service.Result;
 import dev.langchain4j.store.embedding.filter.comparison.IsEqualTo;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -109,12 +112,44 @@ public class FlashcardService {
         return toSetResponse(set, cards);
     }
 
+    public List<FlashcardSetSummaryResponse> listSets(AuthenticatedUser principal, String subjectId) {
+        subjectService.findById(subjectId);
+        return flashcardSetRepository.findAllByUserIdAndSubjectIdOrderByCreatedAtDesc(principal.id(), subjectId).stream()
+                .map(this::toSummaryResponse)
+                .toList();
+    }
+
+    public FlashcardSetResponse getSet(AuthenticatedUser principal, UUID setId) {
+        FlashcardSet set = resolveOwnedSet(principal, setId);
+        List<Flashcard> cards = flashcardRepository.findAllBySetIdOrderByPositionAsc(set.getId());
+        return toSetResponse(set, cards);
+    }
+
+    public void deleteSet(AuthenticatedUser principal, UUID setId) {
+        FlashcardSet set = resolveOwnedSet(principal, setId);
+        flashcardSetRepository.delete(set);
+    }
+
+    private FlashcardSet resolveOwnedSet(AuthenticatedUser principal, UUID setId) {
+        FlashcardSet set = flashcardSetRepository.findById(setId)
+                .orElseThrow(() -> new FlashcardSetNotFoundException("Unknown flashcard set: " + setId));
+        if (!set.getUserId().equals(principal.id())) {
+            throw new AccessDeniedException("You do not have access to this flashcard set: " + setId);
+        }
+        return set;
+    }
+
     private FlashcardSetResponse toSetResponse(FlashcardSet set, List<Flashcard> cards) {
         List<FlashcardResponse> cardResponses = cards.stream()
                 .map(c -> new FlashcardResponse(c.getQuestion(), c.getAnswer(), c.getDifficulty(), c.getSourceHint()))
                 .toList();
         return new FlashcardSetResponse(set.getId(), set.getSubjectId(), set.getTopic(),
                 set.getLang(), set.getProvider(), set.getCreatedAt(), cardResponses);
+    }
+
+    private FlashcardSetSummaryResponse toSummaryResponse(FlashcardSet set) {
+        return new FlashcardSetSummaryResponse(set.getId(), set.getSubjectId(), set.getTopic(),
+                set.getLang(), set.getProvider(), set.getCreatedAt());
     }
 
     private String modelFor(ModelProvider provider) {
