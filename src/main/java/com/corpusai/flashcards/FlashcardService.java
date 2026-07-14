@@ -5,6 +5,8 @@ import com.corpusai.auth.SubjectAccessService;
 import com.corpusai.flashcards.dto.FlashcardResponse;
 import com.corpusai.flashcards.dto.FlashcardSetResponse;
 import com.corpusai.flashcards.dto.FlashcardSetSummaryResponse;
+import com.corpusai.metrics.LlmFeature;
+import com.corpusai.metrics.UsageRecorder;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
 import com.corpusai.subject.SubjectService;
@@ -22,6 +24,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -42,6 +46,7 @@ public class FlashcardService {
     private final SubjectAccessService subjectAccessService;
     private final FlashcardSetRepository flashcardSetRepository;
     private final FlashcardRepository flashcardRepository;
+    private final UsageRecorder usageRecorder;
 
     public FlashcardService(EmbeddingModel embeddingModel,
                             PgVectorEmbeddingStore embeddingStore,
@@ -49,7 +54,8 @@ public class FlashcardService {
                             SubjectService subjectService,
                             SubjectAccessService subjectAccessService,
                             FlashcardSetRepository flashcardSetRepository,
-                            FlashcardRepository flashcardRepository) {
+                            FlashcardRepository flashcardRepository,
+                            UsageRecorder usageRecorder) {
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.modelFactory = modelFactory;
@@ -57,6 +63,7 @@ public class FlashcardService {
         this.subjectAccessService = subjectAccessService;
         this.flashcardSetRepository = flashcardSetRepository;
         this.flashcardRepository = flashcardRepository;
+        this.usageRecorder = usageRecorder;
     }
 
     @Transactional
@@ -90,7 +97,9 @@ public class FlashcardService {
                 .chatModel(modelFactory.chatModel(provider, modelFor(provider)))
                 .build();
 
+        Instant startedAt = Instant.now();
         Result<GeneratedFlashcards> result = generator.generate(content, count, lang);
+        long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
         List<GeneratedFlashcard> generated = result.content().cards();
 
         TokenUsage usage = result.tokenUsage();
@@ -98,6 +107,9 @@ public class FlashcardService {
                 generated.size(),
                 usage != null ? usage.inputTokenCount() : null,
                 usage != null ? usage.outputTokenCount() : null);
+
+        usageRecorder.record(LlmFeature.FLASHCARDS, provider, modelFor(provider), usage, latencyMs,
+                principal.id(), subjectId, null);
 
         FlashcardSet set = new FlashcardSet(principal.id(), subjectId, topic, lang, provider);
         flashcardSetRepository.save(set);

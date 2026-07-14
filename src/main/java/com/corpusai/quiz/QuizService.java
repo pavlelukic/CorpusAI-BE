@@ -2,6 +2,8 @@ package com.corpusai.quiz;
 
 import com.corpusai.auth.AuthenticatedUser;
 import com.corpusai.auth.SubjectAccessService;
+import com.corpusai.metrics.LlmFeature;
+import com.corpusai.metrics.UsageRecorder;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
 import com.corpusai.quiz.dto.QuizDetailResponse;
@@ -25,6 +27,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +53,7 @@ public class QuizService {
     private final SubjectAccessService subjectAccessService;
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
+    private final UsageRecorder usageRecorder;
 
     public QuizService(EmbeddingModel embeddingModel,
                        PgVectorEmbeddingStore embeddingStore,
@@ -56,7 +61,8 @@ public class QuizService {
                        SubjectService subjectService,
                        SubjectAccessService subjectAccessService,
                        QuizRepository quizRepository,
-                       QuizQuestionRepository quizQuestionRepository) {
+                       QuizQuestionRepository quizQuestionRepository,
+                       UsageRecorder usageRecorder) {
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.modelFactory = modelFactory;
@@ -64,6 +70,7 @@ public class QuizService {
         this.subjectAccessService = subjectAccessService;
         this.quizRepository = quizRepository;
         this.quizQuestionRepository = quizQuestionRepository;
+        this.usageRecorder = usageRecorder;
     }
 
     @Transactional
@@ -97,7 +104,9 @@ public class QuizService {
                 .chatModel(modelFactory.chatModel(provider, modelFor(provider)))
                 .build();
 
+        Instant startedAt = Instant.now();
         Result<GeneratedQuiz> result = generator.generate(content, count, lang);
+        long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
         List<GeneratedQuestion> generated = result.content().questions();
         generated.forEach(this::requireWellFormed);
 
@@ -106,6 +115,9 @@ public class QuizService {
                 generated.size(),
                 usage != null ? usage.inputTokenCount() : null,
                 usage != null ? usage.outputTokenCount() : null);
+
+        usageRecorder.record(LlmFeature.QUIZ, provider, modelFor(provider), usage, latencyMs,
+                principal.id(), subjectId, null);
 
         Quiz quiz = new Quiz(principal.id(), subjectId, topic, lang, provider, generated.size());
         quizRepository.save(quiz);
