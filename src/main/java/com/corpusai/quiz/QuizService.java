@@ -2,6 +2,8 @@ package com.corpusai.quiz;
 
 import com.corpusai.auth.AuthenticatedUser;
 import com.corpusai.auth.SubjectAccessService;
+import com.corpusai.metrics.LlmFeature;
+import com.corpusai.metrics.UsageRecorder;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
 import com.corpusai.quiz.dto.QuizDetailResponse;
@@ -25,6 +27,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +53,7 @@ public class QuizService {
     private final SubjectAccessService subjectAccessService;
     private final QuizRepository quizRepository;
     private final QuizQuestionRepository quizQuestionRepository;
+    private final UsageRecorder usageRecorder;
 
     public QuizService(EmbeddingModel embeddingModel,
                        PgVectorEmbeddingStore embeddingStore,
@@ -56,7 +61,8 @@ public class QuizService {
                        SubjectService subjectService,
                        SubjectAccessService subjectAccessService,
                        QuizRepository quizRepository,
-                       QuizQuestionRepository quizQuestionRepository) {
+                       QuizQuestionRepository quizQuestionRepository,
+                       UsageRecorder usageRecorder) {
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.modelFactory = modelFactory;
@@ -64,6 +70,7 @@ public class QuizService {
         this.subjectAccessService = subjectAccessService;
         this.quizRepository = quizRepository;
         this.quizQuestionRepository = quizQuestionRepository;
+        this.usageRecorder = usageRecorder;
     }
 
     @Transactional
@@ -93,19 +100,28 @@ public class QuizService {
 
         log.info("Generating {} question(s) from {} chunk(s)", count, chunks.size());
 
+        String model = modelFor(provider);
         var generator = AiServices.builder(QuizGenerator.class)
-                .chatModel(modelFactory.chatModel(provider, modelFor(provider)))
+                .chatModel(modelFactory.chatModel(provider, model))
                 .build();
 
+        Instant startedAt = Instant.now();
         Result<GeneratedQuiz> result = generator.generate(content, count, lang);
+        long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
         List<GeneratedQuestion> generated = result.content().questions();
-        generated.forEach(this::requireWellFormed);
 
         TokenUsage usage = result.tokenUsage();
         log.info("Generated {} question(s) - tokens in/out: {}/{}",
                 generated.size(),
                 usage != null ? usage.inputTokenCount() : null,
                 usage != null ? usage.outputTokenCount() : null);
+
+        // Recorded before validation: the LLM call already succeeded and cost real tokens by this
+        // point, regardless of whether the response turns out well-formed below.
+        usageRecorder.record(LlmFeature.QUIZ, provider, model, usage, latencyMs,
+                principal.id(), subjectId, null);
+
+        generated.forEach(this::requireWellFormed);
 
         Quiz quiz = new Quiz(principal.id(), subjectId, topic, lang, provider, generated.size());
         quizRepository.save(quiz);
