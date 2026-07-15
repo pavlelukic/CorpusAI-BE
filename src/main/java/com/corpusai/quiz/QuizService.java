@@ -108,7 +108,6 @@ public class QuizService {
         Result<GeneratedQuiz> result = generator.generate(content, count, lang);
         long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
         List<GeneratedQuestion> generated = result.content().questions();
-        generated.forEach(this::requireWellFormed);
 
         TokenUsage usage = result.tokenUsage();
         log.info("Generated {} question(s) - tokens in/out: {}/{}",
@@ -116,8 +115,12 @@ public class QuizService {
                 usage != null ? usage.inputTokenCount() : null,
                 usage != null ? usage.outputTokenCount() : null);
 
+        // Recorded before validation: the LLM call already succeeded and cost real tokens by this
+        // point, regardless of whether the response turns out well-formed below.
         usageRecorder.record(LlmFeature.QUIZ, provider, modelFor(provider), usage, latencyMs,
                 principal.id(), subjectId, null);
+
+        generated.forEach(this::requireWellFormed);
 
         Quiz quiz = new Quiz(principal.id(), subjectId, topic, lang, provider, generated.size());
         quizRepository.save(quiz);
