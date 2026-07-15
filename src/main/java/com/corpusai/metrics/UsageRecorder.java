@@ -4,6 +4,7 @@ import com.corpusai.model.ModelProvider;
 import dev.langchain4j.model.output.TokenUsage;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Component
@@ -22,6 +23,6 @@ public class UsageRecorder {
         Integer totalTokens = tokenUsage != null ? tokenUsage.totalTokenCount() : null;
 
         llmUsageRepository.save(new LlmUsage(feature, provider, model, inputTokens, outputTokens,
-                totalTokens, latencyMs, userId, subjectId, sessionId));
+                totalTokens, latencyMs, userId, subjectId, sessionId, Instant.now()));
     }
 }

@@ -62,7 +62,7 @@ public class LlmUsage {
 
     public LlmUsage(LlmFeature feature, ModelProvider provider, String model, Integer inputTokens,
                      Integer outputTokens, Integer totalTokens, long latencyMs, UUID userId,
-                     String subjectId, UUID sessionId) {
+                     String subjectId, UUID sessionId, Instant createdAt) {
         this.feature = feature;
         this.provider = provider;
         this.model = model;
@@ -73,7 +73,7 @@ public class LlmUsage {
         this.userId = userId;
         this.subjectId = subjectId;
         this.sessionId = sessionId;
-        this.createdAt = Instant.now();
+        this.createdAt = createdAt;
     }
 
     public UUID getId() {

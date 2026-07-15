@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +34,7 @@ class LlmUsagePersistenceTest {
 
         LlmUsage usage = llmUsageRepository.save(new LlmUsage(
                 LlmFeature.CHAT, ModelProvider.ANTHROPIC, "claude-haiku-4-5",
-                120, 45, 165, 842L, userId, SUBJECT_ID, sessionId));
+                120, 45, 165, 842L, userId, SUBJECT_ID, sessionId, Instant.now()));
 
         entityManager.flush();
         entityManager.clear();
@@ -57,7 +58,7 @@ class LlmUsagePersistenceTest {
     void queryCompressionRowWithNoContextSurvivesRoundTrip() {
         LlmUsage usage = llmUsageRepository.save(new LlmUsage(
                 LlmFeature.QUERY_COMPRESSION, ModelProvider.OPENAI, "gpt-4o-mini",
-                null, null, null, 311L, null, null, null));
+                null, null, null, 311L, null, null, null, Instant.now()));
 
         entityManager.flush();
         entityManager.clear();
