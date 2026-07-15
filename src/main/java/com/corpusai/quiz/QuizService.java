@@ -100,8 +100,9 @@ public class QuizService {
 
         log.info("Generating {} question(s) from {} chunk(s)", count, chunks.size());
 
+        String model = modelFor(provider);
         var generator = AiServices.builder(QuizGenerator.class)
-                .chatModel(modelFactory.chatModel(provider, modelFor(provider)))
+                .chatModel(modelFactory.chatModel(provider, model))
                 .build();
 
         Instant startedAt = Instant.now();
@@ -117,7 +118,7 @@ public class QuizService {
 
         // Recorded before validation: the LLM call already succeeded and cost real tokens by this
         // point, regardless of whether the response turns out well-formed below.
-        usageRecorder.record(LlmFeature.QUIZ, provider, modelFor(provider), usage, latencyMs,
+        usageRecorder.record(LlmFeature.QUIZ, provider, model, usage, latencyMs,
                 principal.id(), subjectId, null);
 
         generated.forEach(this::requireWellFormed);

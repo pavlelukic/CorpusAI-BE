@@ -1,5 +1,7 @@
 package com.corpusai.metrics;
 
+import java.util.Locale;
+
 public enum GroupBy {
     PROVIDER,
     MODEL,
@@ -10,7 +12,7 @@ public enum GroupBy {
             return null;
         }
         try {
-            return GroupBy.valueOf(raw.trim().toUpperCase());
+            return GroupBy.valueOf(raw.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Invalid groupBy: " + raw + " (expected provider, model, or feature)");
         }

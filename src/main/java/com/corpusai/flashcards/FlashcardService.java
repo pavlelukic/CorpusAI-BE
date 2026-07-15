@@ -93,8 +93,9 @@ public class FlashcardService {
 
         log.info("Generating {} flashcard(s) from {} chunk(s)", count, chunks.size());
 
+        String model = modelFor(provider);
         var generator = AiServices.builder(FlashcardGenerator.class)
-                .chatModel(modelFactory.chatModel(provider, modelFor(provider)))
+                .chatModel(modelFactory.chatModel(provider, model))
                 .build();
 
         Instant startedAt = Instant.now();
@@ -108,7 +109,7 @@ public class FlashcardService {
                 usage != null ? usage.inputTokenCount() : null,
                 usage != null ? usage.outputTokenCount() : null);
 
-        usageRecorder.record(LlmFeature.FLASHCARDS, provider, modelFor(provider), usage, latencyMs,
+        usageRecorder.record(LlmFeature.FLASHCARDS, provider, model, usage, latencyMs,
                 principal.id(), subjectId, null);
 
         FlashcardSet set = new FlashcardSet(principal.id(), subjectId, topic, lang, provider);
