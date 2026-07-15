@@ -1,5 +1,8 @@
 package com.corpusai.chat;
 
+import com.corpusai.metrics.LlmFeature;
+import com.corpusai.metrics.RecordingChatModel;
+import com.corpusai.metrics.UsageRecorder;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -17,17 +20,22 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RetrievalAugmentorFactory {
 
+    private static final String COMPRESSION_MODEL = "gpt-4o-mini";
+
     private final EmbeddingModel embeddingModel;
     private final PgVectorEmbeddingStore embeddingStore;
     private final ModelFactory modelFactory;
+    private final UsageRecorder usageRecorder;
     private final Map<String, RetrievalAugmentor> cache = new ConcurrentHashMap<>();
 
     public RetrievalAugmentorFactory(EmbeddingModel embeddingModel,
                                      PgVectorEmbeddingStore embeddingStore,
-                                     ModelFactory modelFactory) {
+                                     ModelFactory modelFactory,
+                                     UsageRecorder usageRecorder) {
         this.embeddingModel = embeddingModel;
         this.embeddingStore = embeddingStore;
         this.modelFactory = modelFactory;
+        this.usageRecorder = usageRecorder;
     }
 
     public RetrievalAugmentor forSubject(String subjectId) {
@@ -42,8 +50,12 @@ public class RetrievalAugmentorFactory {
                 .filter(new IsEqualTo("subject_id", subjectId))
                 .build();
 
+        var compressionModel = new RecordingChatModel(
+                modelFactory.chatModel(ModelProvider.OPENAI, COMPRESSION_MODEL),
+                usageRecorder, LlmFeature.QUERY_COMPRESSION, ModelProvider.OPENAI, COMPRESSION_MODEL, subjectId);
+
         var queryTransformer = CompressingQueryTransformer.builder()
-                .chatModel(modelFactory.chatModel(ModelProvider.OPENAI, "gpt-4o-mini"))
+                .chatModel(compressionModel)
                 .build();
 
         return DefaultRetrievalAugmentor.builder()

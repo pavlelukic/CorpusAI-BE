@@ -7,6 +7,8 @@ import com.corpusai.chat.dto.ChatMessageResponse;
 import com.corpusai.chat.dto.ChatSessionResponse;
 import com.corpusai.chat.dto.CreateChatSessionRequest;
 import com.corpusai.chat.dto.SendMessageRequest;
+import com.corpusai.metrics.LlmFeature;
+import com.corpusai.metrics.UsageRecorder;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -32,9 +34,11 @@ import java.util.UUID;
 public class ChatController {
 
     private final ChatService chatService;
+    private final UsageRecorder usageRecorder;
 
-    public ChatController(ChatService chatService) {
+    public ChatController(ChatService chatService, UsageRecorder usageRecorder) {
         this.chatService = chatService;
+        this.usageRecorder = usageRecorder;
     }
 
     @PostMapping
@@ -73,7 +77,8 @@ public class ChatController {
                                   @AuthenticationPrincipal AuthenticatedUser principal) {
         var emitter = new SseEmitter(300_000L);
 
-        var tokenStream = chatService.process(principal, sessionId, request.message());
+        var result = chatService.process(principal, sessionId, request.message());
+        var tokenStream = result.tokenStream();
         Instant startedAt = Instant.now();
 
         tokenStream.onPartialResponse(token -> {
@@ -90,6 +95,8 @@ public class ChatController {
                         long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
                         UUID messageId = chatService.latestMessageId(sessionId);
                         var usage = response.tokenUsage();
+                        usageRecorder.record(LlmFeature.CHAT, result.provider(), result.model(), usage, latencyMs,
+                                principal.id(), result.subjectId(), sessionId);
                         emitter.send(SseEmitter.event()
                                 .name("done")
                                 .data(new ChatDoneResponse(messageId,

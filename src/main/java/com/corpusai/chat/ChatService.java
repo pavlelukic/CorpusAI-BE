@@ -53,7 +53,7 @@ public class ChatService {
         return chatSessionRepository.save(session);
     }
 
-    public TokenStream process(AuthenticatedUser principal, UUID sessionId, String message) {
+    public ProcessResult process(AuthenticatedUser principal, UUID sessionId, String message) {
         ChatSession session = resolveOwnedSession(principal, sessionId);
         subjectAccessService.checkAccess(principal, session.getSubjectId());
         Subject subject = subjectService.findById(session.getSubjectId());
@@ -67,8 +67,9 @@ public class ChatService {
         log.info("Chat request - session: '{}', subject: '{}', provider: '{}'",
                 sessionId, session.getSubjectId(), session.getProvider());
 
+        String model = modelFor(session.getProvider());
         var assistant = AiServices.builder(TutorAssistant.class)
-                .streamingChatModel(modelFactory.streamingChatModel(session.getProvider(), modelFor(session.getProvider())))
+                .streamingChatModel(modelFactory.streamingChatModel(session.getProvider(), model))
                 .systemMessageProvider(memoryId -> buildSystemPrompt(subject, session.getLang()))
                 .chatMemory(chatMemoryRegistry.getOrCreate(sessionId))
                 .retrievalAugmentor(retrievalAugmentorFactory.forSubject(session.getSubjectId()))
@@ -76,7 +77,11 @@ public class ChatService {
                 .storeRetrievedContentInChatMemory(false)
                 .build();
 
-        return assistant.chat(message);
+        TokenStream tokenStream = assistant.chat(message);
+        return new ProcessResult(tokenStream, session.getSubjectId(), session.getProvider(), model);
+    }
+
+    public record ProcessResult(TokenStream tokenStream, String subjectId, ModelProvider provider, String model) {
     }
 
     public UUID latestMessageId(UUID sessionId) {
