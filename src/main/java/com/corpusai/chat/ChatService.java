@@ -4,6 +4,7 @@ import com.corpusai.auth.AuthenticatedUser;
 import com.corpusai.auth.SubjectAccessService;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
+import com.corpusai.rag.RetrievalAugmentorFactory;
 import com.corpusai.subject.Subject;
 import com.corpusai.subject.SubjectService;
 import dev.langchain4j.service.AiServices;

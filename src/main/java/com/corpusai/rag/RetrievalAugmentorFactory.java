@@ -1,4 +1,4 @@
-package com.corpusai.chat;
+package com.corpusai.rag;
 
 import com.corpusai.metrics.LlmFeature;
 import com.corpusai.metrics.RecordingChatModel;

@@ -225,7 +225,7 @@ model call or seeds fixtures directly.
 ```
 src/main/java/com/corpusai/
 ├── auth/          # Users, JWT, Spring Security, subject-access grants, admin user endpoints
-├── chat/          # Sessions, DB-backed chat memory, SSE streaming, RAG augmentor
+├── chat/          # Sessions, DB-backed chat memory, SSE streaming
 ├── config/        # Global error handling, vector store config
 ├── document/      # Document entity, admin upload/list/delete
 ├── flashcards/    # Flashcard generation + history
@@ -233,6 +233,6 @@ src/main/java/com/corpusai/
 ├── metrics/       # llm_usage recording + admin analytics/CSV export
 ├── model/         # ModelFactory — OpenAI/Anthropic builders, model roles
 ├── quiz/          # MCQ generation, server-side grading, history
-├── rag/           # SubjectContentRetriever — retrieval shared by flashcards and quizzes
+├── rag/           # Retrieval: shared retriever for generation, augmentor for chat
 └── subject/       # Subjects, slug generation, prompt resolution, admin CRUD
 ```
