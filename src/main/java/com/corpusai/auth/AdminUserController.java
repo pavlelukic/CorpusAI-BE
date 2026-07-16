@@ -44,7 +44,7 @@ public class AdminUserController {
                             @PathVariable String subjectId,
                             @AuthenticationPrincipal AuthenticatedUser principal) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown user: " + userId));
+                .orElseThrow(() -> new UserNotFoundException(userId));
         subjectService.findById(subjectId);
 
         UserSubjectId id = new UserSubjectId(user.getId(), subjectId);

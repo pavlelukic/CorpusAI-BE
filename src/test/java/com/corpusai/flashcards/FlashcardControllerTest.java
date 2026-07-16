@@ -151,7 +151,8 @@ class FlashcardControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 
     // --- list ---
@@ -194,7 +195,8 @@ class FlashcardControllerTest {
 
         mockMvc.perform(get("/api/flashcards").param("subjectId", "no-such-subject")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 
     // --- get one set ---

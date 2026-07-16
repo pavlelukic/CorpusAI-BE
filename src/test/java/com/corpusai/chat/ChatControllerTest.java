@@ -130,7 +130,8 @@ class ChatControllerTest {
                         .content("""
                                 {"subjectId":"no-such-subject","lang":"sr","provider":"OPENAI"}
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 
     @Test
@@ -146,6 +147,38 @@ class ChatControllerTest {
                         .content("""
                                 {"subjectId":"%s","lang":"fr","provider":"OPENAI"}
                                 """.formatted(subject.getId())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void createSessionRejectsUnknownProvider() throws Exception {
+        Subject subject = createTestSubject();
+        User user = registerUser();
+        grantAccess(user, subject.getId());
+        String token = login(user.getEmail(), "password123");
+
+        // An unmapped enum value fails Jackson deserialization before validation runs, so
+        // this lands on the malformed-body handler rather than VALIDATION_ERROR.
+        mockMvc.perform(post("/api/chats")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + token)
+                        .content("""
+                                {"subjectId":"%s","lang":"sr","provider":"GEMINI"}
+                                """.formatted(subject.getId())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("BAD_REQUEST"));
+    }
+
+    @Test
+    void createSessionRejectsMissingFields() throws Exception {
+        User user = registerUser();
+        String token = login(user.getEmail(), "password123");
+
+        mockMvc.perform(post("/api/chats")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", "Bearer " + token)
+                        .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
     }
@@ -193,7 +226,8 @@ class ChatControllerTest {
 
         mockMvc.perform(get("/api/chats").param("subjectId", "no-such-subject")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 
     @Test

@@ -98,6 +98,81 @@ class AdminSubjectControllerTest {
     }
 
     @Test
+    void createWithDuplicateDisplayNameReturnsConflict() throws Exception {
+        String adminToken = createAdminAndLogin();
+        String displayName = "MockMvc Subject " + UUID.randomUUID();
+
+        String createBody = mockMvc.perform(post("/api/admin/subjects")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"displayName":"%s","displayNameSr":"SR Name"}
+                                """.formatted(displayName)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        createdSubjectIds.add(objectMapper.readTree(createBody).get("id").asText());
+
+        mockMvc.perform(post("/api/admin/subjects")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"displayName":"%s","displayNameSr":"SR Name"}
+                                """.formatted(displayName)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("CONFLICT"));
+    }
+
+    @Test
+    void nonAdminCannotUpdateSubject() throws Exception {
+        String userToken = registerAndLogin(uniqueEmail());
+
+        mockMvc.perform(put("/api/admin/subjects/{id}", "softverski-proces")
+                        .header("Authorization", "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"displayName":"Hijacked","displayNameSr":"Hijacked"}
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
+
+    @Test
+    void nonAdminCannotArchiveSubject() throws Exception {
+        String userToken = registerAndLogin(uniqueEmail());
+
+        mockMvc.perform(delete("/api/admin/subjects/{id}", "softverski-proces")
+                        .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
+
+    @Test
+    void updateUnknownSubjectReturnsNotFound() throws Exception {
+        String adminToken = createAdminAndLogin();
+
+        mockMvc.perform(put("/api/admin/subjects/{id}", "no-such-subject")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"displayName":"Renamed","displayNameSr":"SR Renamed"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Unknown subject: no-such-subject"));
+    }
+
+    @Test
+    void archiveUnknownSubjectReturnsNotFound() throws Exception {
+        String adminToken = createAdminAndLogin();
+
+        mockMvc.perform(delete("/api/admin/subjects/{id}", "no-such-subject")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Unknown subject: no-such-subject"));
+    }
+
+    @Test
     void adminCanCreateUpdateAndArchiveSubjectRevokingAccess() throws Exception {
         String adminToken = createAdminAndLogin();
         String displayName = "MockMvc Subject " + UUID.randomUUID();
@@ -113,15 +188,6 @@ class AdminSubjectControllerTest {
                 .andReturn().getResponse().getContentAsString();
         String subjectId = objectMapper.readTree(createBody).get("id").asText();
         createdSubjectIds.add(subjectId);
-
-        mockMvc.perform(post("/api/admin/subjects")
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"displayName":"%s","displayNameSr":"SR Name"}
-                                """.formatted(displayName)))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value("CONFLICT"));
 
         mockMvc.perform(put("/api/admin/subjects/{id}", subjectId)
                         .header("Authorization", "Bearer " + adminToken)

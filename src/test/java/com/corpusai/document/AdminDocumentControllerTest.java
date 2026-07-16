@@ -108,14 +108,15 @@ class AdminDocumentControllerTest {
     }
 
     @Test
-    void uploadToUnknownSubjectReturnsBadRequest() throws Exception {
+    void uploadToUnknownSubjectReturnsNotFound() throws Exception {
         String adminToken = createAdminAndLogin();
         MockMultipartFile file = new MockMultipartFile("file", "note.md", "text/markdown", "content".getBytes(StandardCharsets.UTF_8));
 
         mockMvc.perform(multipart("/api/admin/subjects/{subjectId}/documents", "no-such-subject")
                         .file(file)
                         .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 
     @Test

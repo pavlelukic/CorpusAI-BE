@@ -154,7 +154,8 @@ class QuizControllerTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 
     // --- submit: server-side grading ---
@@ -493,7 +494,8 @@ class QuizControllerTest {
 
         mockMvc.perform(get("/api/quizzes").param("subjectId", "no-such-subject")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"));
     }
 
     // --- delete ---

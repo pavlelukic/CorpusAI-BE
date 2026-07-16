@@ -1,6 +1,7 @@
 package com.corpusai.config;
 
 import com.corpusai.auth.DuplicateEmailException;
+import com.corpusai.auth.UserNotFoundException;
 import com.corpusai.chat.ChatSessionNotFoundException;
 import com.corpusai.config.dto.ErrorResponse;
 import com.corpusai.document.DocumentNotFoundException;
@@ -9,6 +10,7 @@ import com.corpusai.flashcards.FlashcardSetNotFoundException;
 import com.corpusai.quiz.QuizAlreadyCompletedException;
 import com.corpusai.quiz.QuizNotFoundException;
 import com.corpusai.subject.DuplicateSubjectNameException;
+import com.corpusai.subject.SubjectNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -53,6 +55,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ChatSessionNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleChatSessionNotFound(ChatSessionNotFoundException ex) {
+        return new ErrorResponse("NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler(SubjectNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleSubjectNotFound(SubjectNotFoundException ex) {
+        return new ErrorResponse("NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleUserNotFound(UserNotFoundException ex) {
         return new ErrorResponse("NOT_FOUND", ex.getMessage());
     }
 
