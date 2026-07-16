@@ -18,9 +18,6 @@ interface QuizGenerator {
                 - explanation: a brief explanation of why the correct answer is correct
             Vary the position of the correct answer between questions - it must not
             always sit at the same index.
-            Write the question, options, and explanation in {{lang}}
-            ("en" = English, "sr" = Serbian, Latin script, never Cyrillic),
-            regardless of the content's language.
             Respond only with valid JSON.
             """)
     @UserMessage("""
@@ -28,6 +25,11 @@ interface QuizGenerator {
             {{content}}
 
             Generate {{count}} multiple-choice questions from the above content.
+
+            IMPORTANT - output language: write every question, every option and every
+            explanation in {{lang}} ("en" = English, "sr" = Serbian in Latin script, never
+            Cyrillic). The content above is not necessarily in {{lang}}; translate as needed.
+            Do not answer in the content's language unless it matches {{lang}}.
             """)
     Result<GeneratedQuiz> generate(@V("content") String content, @V("count") int count, @V("lang") String lang);
 }

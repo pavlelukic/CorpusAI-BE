@@ -409,14 +409,20 @@ interface QuizDetailResponse {
 interface QuestionDetail {
   id: UUID;
   question: string;
-  options: string[];              // always present, exactly 4
-  // the four below are ALL null while completedAt === null:
-  selectedIndex: number | null;
-  correct: boolean | null;
-  correctIndex: number | null;
-  explanation: string | null;
+  options: string[];        // always present, exactly 4
+  // The four below are OMITTED FROM THE JSON ENTIRELY while completedAt === null
+  // (QuestionDetail is annotated @JsonInclude(NON_NULL)) — they are `undefined`, not null:
+  selectedIndex?: number;
+  correct?: boolean;
+  correctIndex?: number;
+  explanation?: string;     // may still be absent after submit if the model gave none
 }
 ```
+
+> **These four keys are absent, not null.** Unlike the outer object — where `score` and
+> `completedAt` *are* present as `null` — an unanswered question omits the grading keys
+> altogether. So `question.correctIndex !== null` is **true** before submitting (because it's
+> `undefined`) and will mislead you. Branch on `completedAt`, or use `!= null` / `?.`.
 
 So: `completedAt === null` → a resumable quiz, no answers revealed.
 `completedAt !== null` → a rezultati view, grading fields populated.

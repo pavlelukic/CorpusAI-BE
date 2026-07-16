@@ -23,9 +23,11 @@ public class ModelFactory {
     // Boxed deliberately: temperatureFor() returns null for models that reject an explicit temperature
     private static final Double DEFAULT_TEMPERATURE = 0.7;
 
-    // Frontier models (gpt-5.6-terra, claude-sonnet-5) accept only their default temperature
+    // Frontier models (gpt-5.6-terra, claude-sonnet-5) reject an explicit temperature and accept
+    // only their own default. Listing the models that DO take one keeps this fail-safe: an
+    // unrecognised model is built without a temperature rather than erroring at request time.
     private static final Set<String> MODELS_ACCEPTING_TEMPERATURE =
-            Set.of("gpt-5.4-mini", "gpt-4o-mini", "claude-haiku-4-5");
+            Set.of("gpt-5.4-mini", "gpt-4.1", "gpt-4o-mini", "claude-haiku-4-5");
 
     private final String openAiApiKey;
     private final String anthropicApiKey;
@@ -115,8 +117,9 @@ public class ModelFactory {
     }
 
     // null tells the langchain4j builders to omit the field entirely, so the model applies its own
-    // default rather than us sending a value it will reject.
-    private Double temperatureFor(String modelName) {
+    // default rather than us sending a value it will reject. Package-private so ModelFactoryTest can
+    // pin it: sending a temperature to a model that refuses one fails only at request time, live.
+    Double temperatureFor(String modelName) {
         return MODELS_ACCEPTING_TEMPERATURE.contains(modelName) ? DEFAULT_TEMPERATURE : null;
     }
 

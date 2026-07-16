@@ -50,4 +50,22 @@ class ModelFactoryTest {
         assertThat(modelFactory.chatModelName(ModelProvider.ANTHROPIC))
                 .isNotEqualTo(modelFactory.generationModelName(ModelProvider.ANTHROPIC));
     }
+
+    // Both frontier generation models reject an explicit temperature ("does not support 0.7 with
+    // this model" / "`temperature` is deprecated for this model"), so we must omit it for them and
+    // send it for the chat tier. Pinned because getting this wrong fails only at request time,
+    // against a live API — every generation call 500s, as it did during 2.8's model upgrade.
+    @Test
+    void temperatureIsSentOnlyToModelsThatAcceptIt() {
+        assertThat(modelFactory.temperatureFor(modelFactory.chatModelName(ModelProvider.OPENAI))).isEqualTo(0.7);
+        assertThat(modelFactory.temperatureFor(modelFactory.chatModelName(ModelProvider.ANTHROPIC))).isEqualTo(0.7);
+
+        assertThat(modelFactory.temperatureFor(modelFactory.generationModelName(ModelProvider.OPENAI))).isNull();
+        assertThat(modelFactory.temperatureFor(modelFactory.generationModelName(ModelProvider.ANTHROPIC))).isNull();
+    }
+
+    @Test
+    void unknownModelIsBuiltWithoutATemperature() {
+        assertThat(modelFactory.temperatureFor("some-future-model-9000")).isNull();
+    }
 }
