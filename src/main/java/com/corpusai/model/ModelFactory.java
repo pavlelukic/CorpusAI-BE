@@ -14,12 +14,18 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class ModelFactory {
 
-    private static final double DEFAULT_TEMPERATURE = 0.7;
+    // Boxed deliberately: temperatureFor() returns null for models that reject an explicit temperature
+    private static final Double DEFAULT_TEMPERATURE = 0.7;
+
+    // Frontier models (gpt-5.6-terra, claude-sonnet-5) accept only their default temperature
+    private static final Set<String> MODELS_ACCEPTING_TEMPERATURE =
+            Set.of("gpt-5.4-mini", "gpt-4o-mini", "claude-haiku-4-5");
 
     private final String openAiApiKey;
     private final String anthropicApiKey;
@@ -49,15 +55,15 @@ public class ModelFactory {
 
     public String chatModelName(ModelProvider provider) {
         return switch (provider) {
-            case OPENAI -> "gpt-4o-mini";
+            case OPENAI -> "gpt-5.4-mini";
             case ANTHROPIC -> "claude-haiku-4-5";
         };
     }
 
     public String generationModelName(ModelProvider provider) {
         return switch (provider) {
-            case OPENAI -> "gpt-4.1";
-            case ANTHROPIC -> "claude-haiku-4-5";
+            case OPENAI -> "gpt-5.6-terra";
+            case ANTHROPIC -> "claude-sonnet-5";
         };
     }
 
@@ -76,7 +82,7 @@ public class ModelFactory {
             case OPENAI -> OpenAiChatModel.builder()
                     .apiKey(openAiApiKey)
                     .modelName(modelName)
-                    .temperature(DEFAULT_TEMPERATURE)
+                    .temperature(temperatureFor(modelName))
                     .strictJsonSchema(true)
                     .supportedCapabilities(Capability.RESPONSE_FORMAT_JSON_SCHEMA)
                     .build();
@@ -88,7 +94,7 @@ public class ModelFactory {
             case ANTHROPIC -> AnthropicChatModel.builder()
                     .apiKey(anthropicApiKey)
                     .modelName(modelName)
-                    .temperature(DEFAULT_TEMPERATURE)
+                    .temperature(temperatureFor(modelName))
                     .build();
         };
     }
@@ -98,14 +104,20 @@ public class ModelFactory {
             case OPENAI -> OpenAiStreamingChatModel.builder()
                     .apiKey(openAiApiKey)
                     .modelName(modelName)
-                    .temperature(DEFAULT_TEMPERATURE)
+                    .temperature(temperatureFor(modelName))
                     .build();
             case ANTHROPIC -> AnthropicStreamingChatModel.builder()
                     .apiKey(anthropicApiKey)
                     .modelName(modelName)
-                    .temperature(DEFAULT_TEMPERATURE)
+                    .temperature(temperatureFor(modelName))
                     .build();
         };
+    }
+
+    // null tells the langchain4j builders to omit the field entirely, so the model applies its own
+    // default rather than us sending a value it will reject.
+    private Double temperatureFor(String modelName) {
+        return MODELS_ACCEPTING_TEMPERATURE.contains(modelName) ? DEFAULT_TEMPERATURE : null;
     }
 
     private String cacheKey(ModelProvider provider, String modelName){

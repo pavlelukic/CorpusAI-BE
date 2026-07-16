@@ -37,15 +37,17 @@ class ModelFactoryTest {
     // leftover: pinning both here means a future "let's just share one modelFor" fails loudly.
     @Test
     void chatAndGenerationUseTheirOwnOpenAiModels() {
-        assertThat(modelFactory.chatModelName(ModelProvider.OPENAI)).isEqualTo("gpt-4o-mini");
-        assertThat(modelFactory.generationModelName(ModelProvider.OPENAI)).isEqualTo("gpt-4.1");
+        assertThat(modelFactory.chatModelName(ModelProvider.OPENAI)).isEqualTo("gpt-5.4-mini");
+        assertThat(modelFactory.generationModelName(ModelProvider.OPENAI)).isEqualTo("gpt-5.6-terra");
         assertThat(modelFactory.chatModelName(ModelProvider.OPENAI))
                 .isNotEqualTo(modelFactory.generationModelName(ModelProvider.OPENAI));
     }
 
     @Test
-    void bothRolesShareTheSameAnthropicModel() {
+    void chatAndGenerationUseTheirOwnAnthropicModels() {
         assertThat(modelFactory.chatModelName(ModelProvider.ANTHROPIC)).isEqualTo("claude-haiku-4-5");
-        assertThat(modelFactory.generationModelName(ModelProvider.ANTHROPIC)).isEqualTo("claude-haiku-4-5");
+        assertThat(modelFactory.generationModelName(ModelProvider.ANTHROPIC)).isEqualTo("claude-sonnet-5");
+        assertThat(modelFactory.chatModelName(ModelProvider.ANTHROPIC))
+                .isNotEqualTo(modelFactory.generationModelName(ModelProvider.ANTHROPIC));
     }
 }

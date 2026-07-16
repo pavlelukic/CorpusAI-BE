@@ -20,7 +20,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RetrievalAugmentorFactory {
 
-    private static final String COMPRESSION_MODEL = "gpt-4o-mini";
+    // Query compression is a cheap internal rewrite, so it runs on the chat tier and always on
+    // OpenAI regardless of the session's provider. The model name comes from ModelFactory rather
+    // than a local constant so it cannot drift from whatever the chat tier actually uses.
+    private static final ModelProvider COMPRESSION_PROVIDER = ModelProvider.OPENAI;
 
     private final EmbeddingModel embeddingModel;
     private final PgVectorEmbeddingStore embeddingStore;
@@ -50,9 +53,10 @@ public class RetrievalAugmentorFactory {
                 .filter(new IsEqualTo("subject_id", subjectId))
                 .build();
 
+        String compressionModelName = modelFactory.chatModelName(COMPRESSION_PROVIDER);
         var compressionModel = new RecordingChatModel(
-                modelFactory.chatModel(ModelProvider.OPENAI, COMPRESSION_MODEL),
-                usageRecorder, LlmFeature.QUERY_COMPRESSION, ModelProvider.OPENAI, COMPRESSION_MODEL, subjectId);
+                modelFactory.chatModel(COMPRESSION_PROVIDER, compressionModelName),
+                usageRecorder, LlmFeature.QUERY_COMPRESSION, COMPRESSION_PROVIDER, compressionModelName, subjectId);
 
         var queryTransformer = CompressingQueryTransformer.builder()
                 .chatModel(compressionModel)
