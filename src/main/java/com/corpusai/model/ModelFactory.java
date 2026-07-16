@@ -42,6 +42,25 @@ public class ModelFactory {
                 .build();
     }
 
+    // The concrete model behind each provider, kept here rather than in the feature services so
+    // the provider -> model map lives in one place. The two roles are deliberately different:
+    // chat streams token-by-token and favours a fast, cheap model, while flashcard/quiz generation
+    // needs stronger structured-output behaviour. Both names are recorded on every llm_usage row.
+
+    public String chatModelName(ModelProvider provider) {
+        return switch (provider) {
+            case OPENAI -> "gpt-4o-mini";
+            case ANTHROPIC -> "claude-haiku-4-5";
+        };
+    }
+
+    public String generationModelName(ModelProvider provider) {
+        return switch (provider) {
+            case OPENAI -> "gpt-4.1";
+            case ANTHROPIC -> "claude-haiku-4-5";
+        };
+    }
+
     public ChatModel chatModel(ModelProvider provider, String modelName) {
         return chatModels.computeIfAbsent(cacheKey(provider, modelName),
                 key -> buildChatModel(provider, modelName));

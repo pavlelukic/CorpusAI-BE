@@ -31,4 +31,21 @@ class ModelFactoryTest {
         var streaming = modelFactory.streamingChatModel(ModelProvider.ANTHROPIC, "claude-3-5-sonnet-20241022");
         assertThat(streaming).isNotNull();
     }
+
+    // These names end up on every llm_usage row, so the thesis comparison is only meaningful if
+    // each role keeps its own model. Chat and generation differing on OpenAI is deliberate, not a
+    // leftover: pinning both here means a future "let's just share one modelFor" fails loudly.
+    @Test
+    void chatAndGenerationUseTheirOwnOpenAiModels() {
+        assertThat(modelFactory.chatModelName(ModelProvider.OPENAI)).isEqualTo("gpt-4o-mini");
+        assertThat(modelFactory.generationModelName(ModelProvider.OPENAI)).isEqualTo("gpt-4.1");
+        assertThat(modelFactory.chatModelName(ModelProvider.OPENAI))
+                .isNotEqualTo(modelFactory.generationModelName(ModelProvider.OPENAI));
+    }
+
+    @Test
+    void bothRolesShareTheSameAnthropicModel() {
+        assertThat(modelFactory.chatModelName(ModelProvider.ANTHROPIC)).isEqualTo("claude-haiku-4-5");
+        assertThat(modelFactory.generationModelName(ModelProvider.ANTHROPIC)).isEqualTo("claude-haiku-4-5");
+    }
 }

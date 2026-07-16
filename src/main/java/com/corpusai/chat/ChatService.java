@@ -67,7 +67,7 @@ public class ChatService {
         log.info("Chat request - session: '{}', subject: '{}', provider: '{}'",
                 sessionId, session.getSubjectId(), session.getProvider());
 
-        String model = modelFor(session.getProvider());
+        String model = modelFactory.chatModelName(session.getProvider());
         var assistant = AiServices.builder(TutorAssistant.class)
                 .streamingChatModel(modelFactory.streamingChatModel(session.getProvider(), model))
                 .systemMessageProvider(memoryId -> buildSystemPrompt(subject, session.getLang()))
@@ -112,13 +112,6 @@ public class ChatService {
             throw new AccessDeniedException("You do not have access to this chat session: " + sessionId);
         }
         return session;
-    }
-
-    private String modelFor(ModelProvider provider) {
-        return switch (provider) {
-            case OPENAI -> "gpt-4o-mini";
-            case ANTHROPIC -> "claude-haiku-4-5";
-        };
     }
 
     private String truncateTitle(String message) {

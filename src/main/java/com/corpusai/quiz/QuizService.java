@@ -12,16 +12,12 @@ import com.corpusai.quiz.dto.QuizResponse;
 import com.corpusai.quiz.dto.QuizSubmissionRequest;
 import com.corpusai.quiz.dto.QuizSubmissionResponse;
 import com.corpusai.quiz.dto.QuizSummaryResponse;
+import com.corpusai.rag.RetrievedContent;
+import com.corpusai.rag.SubjectContentRetriever;
 import com.corpusai.subject.SubjectService;
-import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.TokenUsage;
-import dev.langchain4j.rag.content.Content;
-import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
-import dev.langchain4j.rag.query.Query;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.service.Result;
-import dev.langchain4j.store.embedding.filter.comparison.IsEqualTo;
-import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -41,13 +37,9 @@ import java.util.stream.Collectors;
 @Service
 public class QuizService {
 
-    private static final int CHUNKS_PER_QUESTION = 2;
-    private static final int MAX_RETRIEVAL_CHUNKS = 20;
-    private static final String BROAD_QUERY = "main topics key concepts overview";
     private static final int OPTIONS_PER_QUESTION = 4;
 
-    private final EmbeddingModel embeddingModel;
-    private final PgVectorEmbeddingStore embeddingStore;
+    private final SubjectContentRetriever contentRetriever;
     private final ModelFactory modelFactory;
     private final SubjectService subjectService;
     private final SubjectAccessService subjectAccessService;
@@ -55,16 +47,14 @@ public class QuizService {
     private final QuizQuestionRepository quizQuestionRepository;
     private final UsageRecorder usageRecorder;
 
-    public QuizService(EmbeddingModel embeddingModel,
-                       PgVectorEmbeddingStore embeddingStore,
+    public QuizService(SubjectContentRetriever contentRetriever,
                        ModelFactory modelFactory,
                        SubjectService subjectService,
                        SubjectAccessService subjectAccessService,
                        QuizRepository quizRepository,
                        QuizQuestionRepository quizQuestionRepository,
                        UsageRecorder usageRecorder) {
-        this.embeddingModel = embeddingModel;
-        this.embeddingStore = embeddingStore;
+        this.contentRetriever = contentRetriever;
         this.modelFactory = modelFactory;
         this.subjectService = subjectService;
         this.subjectAccessService = subjectAccessService;
@@ -82,31 +72,17 @@ public class QuizService {
         log.info("Quiz request - subject: '{}', topic: '{}', count: {}, lang: {}, provider: {}",
                 subjectId, topic, count, lang, provider);
 
-        int chunkCount = Math.min(count * CHUNKS_PER_QUESTION, MAX_RETRIEVAL_CHUNKS);
+        RetrievedContent context = contentRetriever.retrieve(subjectId, topic, count);
 
-        var retriever = EmbeddingStoreContentRetriever.builder()
-                .embeddingStore(embeddingStore)
-                .embeddingModel(embeddingModel)
-                .maxResults(chunkCount)
-                .filter(new IsEqualTo("subject_id", subjectId))
-                .build();
+        log.info("Generating {} question(s) from {} chunk(s)", count, context.chunkCount());
 
-        String query = (topic != null && !topic.isBlank()) ? topic : BROAD_QUERY;
-
-        List<Content> chunks = retriever.retrieve(Query.from(query));
-        String content = chunks.stream()
-                .map(c -> c.textSegment().text())
-                .collect(Collectors.joining("\n\n"));
-
-        log.info("Generating {} question(s) from {} chunk(s)", count, chunks.size());
-
-        String model = modelFor(provider);
+        String model = modelFactory.generationModelName(provider);
         var generator = AiServices.builder(QuizGenerator.class)
                 .chatModel(modelFactory.chatModel(provider, model))
                 .build();
 
         Instant startedAt = Instant.now();
-        Result<GeneratedQuiz> result = generator.generate(content, count, lang);
+        Result<GeneratedQuiz> result = generator.generate(context.text(), count, lang);
         long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
         List<GeneratedQuestion> generated = result.content().questions();
 
@@ -121,6 +97,9 @@ public class QuizService {
         usageRecorder.record(LlmFeature.QUIZ, provider, model, usage, latencyMs,
                 principal.id(), subjectId, null);
 
+        if (generated.isEmpty()) {
+            throw new IllegalStateException("Model returned no questions for subject: " + subjectId);
+        }
         generated.forEach(this::requireWellFormed);
 
         Quiz quiz = new Quiz(principal.id(), subjectId, topic, lang, provider, generated.size());
@@ -254,12 +233,5 @@ public class QuizService {
         return new QuizDetailResponse(quiz.getId(), quiz.getSubjectId(), quiz.getTopic(), quiz.getLang(),
                 quiz.getProvider(), quiz.getQuestionCount(), quiz.getScore(), quiz.getCompletedAt(),
                 quiz.getCreatedAt(), questionDetails);
-    }
-
-    private String modelFor(ModelProvider provider) {
-        return switch (provider) {
-            case OPENAI -> "gpt-4.1";
-            case ANTHROPIC -> "claude-haiku-4-5";
-        };
     }
 }

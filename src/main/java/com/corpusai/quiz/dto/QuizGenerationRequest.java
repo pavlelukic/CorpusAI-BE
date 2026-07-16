@@ -12,4 +12,10 @@ public record QuizGenerationRequest(
         @Max(value = 20, message = "count must be at most 20") Integer count,
         @Pattern(regexp = "en|sr", message = "lang must be 'en' or 'sr'") String lang,
         ModelProvider provider
-) {}
+) {
+    // A whitespace-only topic means "no topic": normalising here rather than in the service keeps
+    // the blank out of the persisted quizzes.topic column as well as out of the RAG query.
+    public QuizGenerationRequest {
+        topic = (topic == null || topic.isBlank()) ? null : topic.trim();
+    }
+}
