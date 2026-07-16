@@ -245,10 +245,17 @@ class SecurityIntegrationTest {
                 .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
     }
 
-    // Flips the last character of the signature segment, leaving header/payload intact.
+    // Flips the FIRST character of the signature segment, leaving header/payload intact.
+    // Not the last character: an HMAC-SHA256 signature is 32 bytes, which base64url-encodes to
+    // 43 chars where the final one carries just 4 significant bits and 2 bits of padding. A swap
+    // that only moves those padding bits decodes to the same signature and still verifies, so
+    // tampering there fails to reject roughly 1 run in 16. Every bit of the first char counts.
     private String tamperSignature(String token) {
-        char last = token.charAt(token.length() - 1);
-        return token.substring(0, token.length() - 1) + (last == 'A' ? 'B' : 'A');
+        int signatureStart = token.lastIndexOf('.') + 1;
+        char first = token.charAt(signatureStart);
+        return token.substring(0, signatureStart)
+                + (first == 'A' ? 'B' : 'A')
+                + token.substring(signatureStart + 1);
     }
 
     private String tokenWithExpiry(SecretKey key, Instant expiry) {
