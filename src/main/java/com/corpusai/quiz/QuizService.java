@@ -12,6 +12,7 @@ import com.corpusai.quiz.dto.QuizResponse;
 import com.corpusai.quiz.dto.QuizSubmissionRequest;
 import com.corpusai.quiz.dto.QuizSubmissionResponse;
 import com.corpusai.quiz.dto.QuizSummaryResponse;
+import com.corpusai.rag.GenerationRetrier;
 import com.corpusai.rag.RetrievedContent;
 import com.corpusai.rag.SubjectContentRetriever;
 import com.corpusai.subject.SubjectService;
@@ -40,6 +41,7 @@ public class QuizService {
     private static final int OPTIONS_PER_QUESTION = 4;
 
     private final SubjectContentRetriever contentRetriever;
+    private final GenerationRetrier generationRetrier;
     private final ModelFactory modelFactory;
     private final SubjectService subjectService;
     private final SubjectAccessService subjectAccessService;
@@ -48,6 +50,7 @@ public class QuizService {
     private final UsageRecorder usageRecorder;
 
     public QuizService(SubjectContentRetriever contentRetriever,
+                       GenerationRetrier generationRetrier,
                        ModelFactory modelFactory,
                        SubjectService subjectService,
                        SubjectAccessService subjectAccessService,
@@ -55,6 +58,7 @@ public class QuizService {
                        QuizQuestionRepository quizQuestionRepository,
                        UsageRecorder usageRecorder) {
         this.contentRetriever = contentRetriever;
+        this.generationRetrier = generationRetrier;
         this.modelFactory = modelFactory;
         this.subjectService = subjectService;
         this.subjectAccessService = subjectAccessService;
@@ -81,9 +85,13 @@ public class QuizService {
                 .chatModel(modelFactory.chatModel(provider, model))
                 .build();
 
-        Instant startedAt = Instant.now();
-        Result<GeneratedQuiz> result = generator.generate(context.text(), count, lang);
-        long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
+        long[] latencyMs = new long[1];
+        Result<GeneratedQuiz> result = generationRetrier.retry("quiz for subject " + subjectId, () -> {
+            Instant startedAt = Instant.now();
+            Result<GeneratedQuiz> r = generator.generate(context.text(), count, lang);
+            latencyMs[0] = Duration.between(startedAt, Instant.now()).toMillis();
+            return r;
+        });
         List<GeneratedQuestion> generated = result.content().questions();
 
         TokenUsage usage = result.tokenUsage();
@@ -94,7 +102,7 @@ public class QuizService {
 
         // Recorded before validation: the LLM call already succeeded and cost real tokens by this
         // point, regardless of whether the response turns out well-formed below.
-        usageRecorder.record(LlmFeature.QUIZ, provider, model, usage, latencyMs,
+        usageRecorder.record(LlmFeature.QUIZ, provider, model, usage, latencyMs[0],
                 principal.id(), subjectId, null);
 
         if (generated.isEmpty()) {

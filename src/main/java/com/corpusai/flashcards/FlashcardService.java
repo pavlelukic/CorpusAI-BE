@@ -9,6 +9,7 @@ import com.corpusai.metrics.LlmFeature;
 import com.corpusai.metrics.UsageRecorder;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
+import com.corpusai.rag.GenerationRetrier;
 import com.corpusai.rag.RetrievedContent;
 import com.corpusai.rag.SubjectContentRetriever;
 import com.corpusai.subject.SubjectService;
@@ -31,6 +32,7 @@ import java.util.UUID;
 public class FlashcardService {
 
     private final SubjectContentRetriever contentRetriever;
+    private final GenerationRetrier generationRetrier;
     private final ModelFactory modelFactory;
     private final SubjectService subjectService;
     private final SubjectAccessService subjectAccessService;
@@ -39,6 +41,7 @@ public class FlashcardService {
     private final UsageRecorder usageRecorder;
 
     public FlashcardService(SubjectContentRetriever contentRetriever,
+                            GenerationRetrier generationRetrier,
                             ModelFactory modelFactory,
                             SubjectService subjectService,
                             SubjectAccessService subjectAccessService,
@@ -46,6 +49,7 @@ public class FlashcardService {
                             FlashcardRepository flashcardRepository,
                             UsageRecorder usageRecorder) {
         this.contentRetriever = contentRetriever;
+        this.generationRetrier = generationRetrier;
         this.modelFactory = modelFactory;
         this.subjectService = subjectService;
         this.subjectAccessService = subjectAccessService;
@@ -72,9 +76,13 @@ public class FlashcardService {
                 .chatModel(modelFactory.chatModel(provider, model))
                 .build();
 
-        Instant startedAt = Instant.now();
-        Result<GeneratedFlashcards> result = generator.generate(context.text(), count, lang);
-        long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
+        long[] latencyMs = new long[1];
+        Result<GeneratedFlashcards> result = generationRetrier.retry("flashcards for subject " + subjectId, () -> {
+            Instant startedAt = Instant.now();
+            Result<GeneratedFlashcards> r = generator.generate(context.text(), count, lang);
+            latencyMs[0] = Duration.between(startedAt, Instant.now()).toMillis();
+            return r;
+        });
         List<GeneratedFlashcard> generated = result.content().cards();
 
         TokenUsage usage = result.tokenUsage();
@@ -85,7 +93,7 @@ public class FlashcardService {
 
         // Recorded before validation: the LLM call already succeeded and cost real tokens by this
         // point, regardless of whether the response turns out usable below.
-        usageRecorder.record(LlmFeature.FLASHCARDS, provider, model, usage, latencyMs,
+        usageRecorder.record(LlmFeature.FLASHCARDS, provider, model, usage, latencyMs[0],
                 principal.id(), subjectId, null);
 
         if (generated.isEmpty()) {
