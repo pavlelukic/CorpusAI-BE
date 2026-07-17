@@ -1,6 +1,8 @@
 package com.corpusai.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -10,6 +12,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.empty;
@@ -37,6 +44,9 @@ class SecurityIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private JwtProperties jwtProperties;
 
     @Test
     void registerLoginAndMeFlowWorks() throws Exception {
@@ -178,6 +188,84 @@ class SecurityIntegrationTest {
     void actuatorHealthIsPublic() throws Exception {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk());
+    }
+
+    // --- token rejection matrix ---
+    // JwtAuthenticationFilter silently leaves the context unauthenticated for any token it
+    // can't verify, so every case below lands on JsonAuthenticationEntryPoint's 401 body.
+
+    @Test
+    void garbageTokenReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer not.a.jwt"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void tokenWithTamperedSignatureReturnsUnauthorized() throws Exception {
+        String email = uniqueEmail();
+        register(email, "password123", "Test User");
+        String token = login(email, "password123");
+
+        mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + tamperSignature(token)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void expiredTokenReturnsUnauthorized() throws Exception {
+        String expired = tokenWithExpiry(
+                Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8)),
+                Instant.now().minus(2, ChronoUnit.HOURS));
+
+        mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + expired))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void tokenSignedWithWrongSecretReturnsUnauthorized() throws Exception {
+        SecretKey foreignKey = Keys.hmacShaKeyFor(
+                "a-completely-different-secret-that-is-long-enough-for-hmac-sha256".getBytes(StandardCharsets.UTF_8));
+        String foreignToken = tokenWithExpiry(foreignKey, Instant.now().plus(1, ChronoUnit.HOURS));
+
+        mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + foreignToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void tokenWithoutBearerPrefixReturnsUnauthorized() throws Exception {
+        String email = uniqueEmail();
+        register(email, "password123", "Test User");
+        String token = login(email, "password123");
+
+        mockMvc.perform(get("/api/auth/me").header("Authorization", token))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("UNAUTHORIZED"));
+    }
+
+    // Flips the FIRST character of the signature segment, leaving header/payload intact.
+    // Not the last character: an HMAC-SHA256 signature is 32 bytes, which base64url-encodes to
+    // 43 chars where the final one carries just 4 significant bits and 2 bits of padding. A swap
+    // that only moves those padding bits decodes to the same signature and still verifies, so
+    // tampering there fails to reject roughly 1 run in 16. Every bit of the first char counts.
+    private String tamperSignature(String token) {
+        int signatureStart = token.lastIndexOf('.') + 1;
+        char first = token.charAt(signatureStart);
+        return token.substring(0, signatureStart)
+                + (first == 'A' ? 'B' : 'A')
+                + token.substring(signatureStart + 1);
+    }
+
+    private String tokenWithExpiry(SecretKey key, Instant expiry) {
+        return Jwts.builder()
+                .subject(UUID.randomUUID().toString())
+                .claim("role", Role.USER.name())
+                .issuedAt(Date.from(expiry.minus(1, ChronoUnit.HOURS)))
+                .expiration(Date.from(expiry))
+                .signWith(key)
+                .compact();
     }
 
     private String uniqueEmail() {

@@ -32,7 +32,7 @@ public class SubjectService {
 
     public Subject findById(String subjectId) {
         return subjectRepository.findById(subjectId)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown subject: " + subjectId));
+                .orElseThrow(() -> new SubjectNotFoundException(subjectId));
     }
 
     public Subject create(String displayName, String displayNameSr, String systemPrompt) {

@@ -1,6 +1,7 @@
 package com.corpusai.config;
 
 import com.corpusai.auth.DuplicateEmailException;
+import com.corpusai.auth.UserNotFoundException;
 import com.corpusai.chat.ChatSessionNotFoundException;
 import com.corpusai.config.dto.ErrorResponse;
 import com.corpusai.document.DocumentNotFoundException;
@@ -8,18 +9,24 @@ import com.corpusai.document.InvalidFileTypeException;
 import com.corpusai.flashcards.FlashcardSetNotFoundException;
 import com.corpusai.quiz.QuizAlreadyCompletedException;
 import com.corpusai.quiz.QuizNotFoundException;
+import com.corpusai.rag.SubjectHasNoContentException;
 import com.corpusai.subject.DuplicateSubjectNameException;
+import com.corpusai.subject.SubjectNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -56,6 +63,18 @@ public class GlobalExceptionHandler {
         return new ErrorResponse("NOT_FOUND", ex.getMessage());
     }
 
+    @ExceptionHandler(SubjectNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleSubjectNotFound(SubjectNotFoundException ex) {
+        return new ErrorResponse("NOT_FOUND", ex.getMessage());
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleUserNotFound(UserNotFoundException ex) {
+        return new ErrorResponse("NOT_FOUND", ex.getMessage());
+    }
+
     @ExceptionHandler(FlashcardSetNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleFlashcardSetNotFound(FlashcardSetNotFoundException ex) {
@@ -71,6 +90,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(QuizAlreadyCompletedException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleQuizAlreadyCompleted(QuizAlreadyCompletedException ex) {
+        return new ErrorResponse("CONFLICT", ex.getMessage());
+    }
+
+    // 409, not 500: the request is well-formed and authorised, but the subject has nothing
+    // ingested yet to generate from. A conflict with resource state the client can act on
+    // (upload documents first) rather than a server fault.
+    @ExceptionHandler(SubjectHasNoContentException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleSubjectHasNoContent(SubjectHasNoContentException ex) {
         return new ErrorResponse("CONFLICT", ex.getMessage());
     }
 
@@ -122,6 +150,39 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleMissingBody(HttpMessageNotReadableException ex) {
         return new ErrorResponse("BAD_REQUEST", "Request body is missing or malformed");
+    }
+
+    // Spring's DefaultHandlerExceptionResolver already maps the four exceptions below to correct
+    // 4xx codes, but the Exception backstop at the bottom of this class outranks it and would
+    // otherwise turn every one of them into a 500. They are handled explicitly to keep that
+    // backstop from swallowing a client error that has a real answer.
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return new ErrorResponse("BAD_REQUEST",
+                "Invalid value for '" + ex.getName() + "': " + ex.getValue());
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMissingParameter(MissingServletRequestParameterException ex) {
+        return new ErrorResponse("BAD_REQUEST",
+                "Required parameter '" + ex.getParameterName() + "' is missing");
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMissingPart(MissingServletRequestPartException ex) {
+        return new ErrorResponse("BAD_REQUEST",
+                "Required file part '" + ex.getRequestPartName() + "' is missing");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    public ErrorResponse handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        return new ErrorResponse("METHOD_NOT_ALLOWED",
+                "Method " + ex.getMethod() + " is not supported for this endpoint");
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)

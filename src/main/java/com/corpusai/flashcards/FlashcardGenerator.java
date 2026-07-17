@@ -15,10 +15,6 @@ interface FlashcardGenerator {
                 - answer: a concise but complete answer
                 - difficulty: one of EASY, MEDIUM, or HARD
                 - sourceHint: a brief phrase indicating the topic area (e.g. "Scrum sprints")
-            Write the question, answer, and sourceHint in {{lang}}
-            ("en" = English, "sr" = Serbian, Latin script, never Cyrillic).
-            The difficulty value must always be exactly one of EASY, MEDIUM, or HARD
-            regardless of the language - never translate it.
             Try to have an even spread of different difficulties.
             Respond only with valid JSON.
             """)
@@ -27,6 +23,12 @@ interface FlashcardGenerator {
             {{content}}
 
             Generate {{count}} flashcards from the above content.
+
+            IMPORTANT - output language: write every question, every answer and every
+            sourceHint in {{lang}} ("en" = English, "sr" = Serbian in Latin script, never
+            Cyrillic). The content above is not necessarily in {{lang}}; translate as needed.
+            Do not answer in the content's language unless it matches {{lang}}.
+            The difficulty value must stay exactly EASY, MEDIUM, or HARD - never translate it.
             """)
     Result<GeneratedFlashcards> generate(@V("content") String content, @V("count") int count, @V("lang") String lang);
 }
