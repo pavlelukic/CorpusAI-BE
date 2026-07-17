@@ -3,6 +3,9 @@ package com.corpusai.flashcards;
 import com.corpusai.auth.Role;
 import com.corpusai.auth.User;
 import com.corpusai.auth.UserRepository;
+import com.corpusai.auth.UserSubjectAccess;
+import com.corpusai.auth.UserSubjectAccessRepository;
+import com.corpusai.auth.UserSubjectId;
 import com.corpusai.ingestion.StorageProperties;
 import com.corpusai.model.ModelProvider;
 import com.corpusai.subject.Subject;
@@ -64,6 +67,9 @@ class FlashcardControllerTest {
 
     @Autowired
     private FlashcardRepository flashcardRepository;
+
+    @Autowired
+    private UserSubjectAccessRepository accessRepository;
 
     private final List<String> createdSubjectIds = new ArrayList<>();
 
@@ -153,6 +159,24 @@ class FlashcardControllerTest {
                         .content("{}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("NOT_FOUND"));
+    }
+
+    // A subject the user can reach but that has no ingested documents: retrieval finds nothing, so
+    // generation must stop with 409 before spending an LLM call, rather than 500ing on an empty
+    // model response. Reachable in an LLM-free test precisely because it fails before the model.
+    @Test
+    void generateReturnsConflictWhenSubjectHasNoContent() throws Exception {
+        Subject subject = createTestSubject();
+        User user = registerUser();
+        grantAccess(user, subject.getId());
+        String token = login(user.getEmail());
+
+        mockMvc.perform(post("/api/flashcards/{subjectId}/generate", subject.getId())
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("CONFLICT"));
     }
 
     // --- list ---
@@ -300,6 +324,10 @@ class FlashcardControllerTest {
         Subject subject = subjectService.create("MockMvc Flashcard Subject " + UUID.randomUUID(), "SR Name", null);
         createdSubjectIds.add(subject.getId());
         return subject;
+    }
+
+    private void grantAccess(User user, String subjectId) {
+        accessRepository.save(new UserSubjectAccess(new UserSubjectId(user.getId(), subjectId), user.getId()));
     }
 
     private User registerUser() {

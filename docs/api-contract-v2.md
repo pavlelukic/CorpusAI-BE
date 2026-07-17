@@ -51,7 +51,7 @@ interface ErrorResponse {
 | 403 | `FORBIDDEN` | Authenticated but not allowed (no subject access, not admin, not owner) |
 | 404 | `NOT_FOUND` | Unknown subject/session/set/quiz/document/user, or unknown route |
 | 405 | `METHOD_NOT_ALLOWED` | Wrong HTTP verb |
-| 409 | `CONFLICT` | Duplicate email, duplicate subject name, quiz already submitted |
+| 409 | `CONFLICT` | Duplicate email, duplicate subject name, quiz already submitted, generation on a subject with no content |
 | 413 | `PAYLOAD_TOO_LARGE` | Upload over 50MB |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | Missing/wrong `Content-Type` |
 | 500 | `INTERNAL_ERROR` / `SERVER_ERROR` | Server-side or upstream LLM failure |
@@ -299,7 +299,8 @@ interface FlashcardResponse {
 This call takes seconds (a real LLM request) — show a loading state.
 
 Errors: `400 VALIDATION_ERROR` (count/topic/lang), `400 BAD_REQUEST` (unknown provider),
-`403`, `404`, `500` (LLM failure or an unusable model response).
+`403`, `404`, `409 CONFLICT` (the subject has no ingested documents yet — upload some first),
+`500` (LLM failure or an unusable model response).
 
 ### `GET /api/flashcards?subjectId={slug}` — user → `200`
 

@@ -34,6 +34,8 @@ public class SubjectContentRetriever {
     /**
      * Retrieves subject context to generate {@code itemCount} items from. A null topic falls back
      * to a broad query, which is what topic-less generation ("cover the whole subject") relies on.
+     *
+     * @throws SubjectHasNoContentException if the subject has nothing indexed to retrieve from
      */
     public RetrievedContent retrieve(String subjectId, String topic, int itemCount) {
         int chunkCount = Math.min(itemCount * CHUNKS_PER_ITEM, MAX_RETRIEVAL_CHUNKS);
@@ -48,6 +50,14 @@ public class SubjectContentRetriever {
         String query = (topic != null && !topic.isBlank()) ? topic : BROAD_QUERY;
 
         List<Content> chunks = retriever.retrieve(Query.from(query));
+
+        // Nothing indexed for this subject: stop here rather than prompting a model with an empty
+        // context. The model would be billed for the call and answer with nothing usable, which
+        // surfaces as a 500 that blames the model for what is really an un-ingested subject.
+        if (chunks.isEmpty()) {
+            throw new SubjectHasNoContentException(subjectId);
+        }
+
         String text = chunks.stream()
                 .map(c -> c.textSegment().text())
                 .collect(Collectors.joining("\n\n"));

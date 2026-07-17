@@ -199,9 +199,16 @@ public class QuizService {
             throw new IllegalStateException(
                     "Model returned a question without exactly " + OPTIONS_PER_QUESTION + " options: " + question.question());
         }
-        if (question.correctIndex() < 0 || question.correctIndex() >= OPTIONS_PER_QUESTION) {
+        if (question.options().stream().anyMatch(o -> o == null || o.isBlank())) {
             throw new IllegalStateException(
-                    "Model returned an out-of-range correctIndex (" + question.correctIndex() + "): " + question.question());
+                    "Model returned a question with a blank option: " + question.question());
+        }
+        // Null (not just out-of-range) matters: the prompt-based Anthropic path has no schema to
+        // force correctIndex, so an omitted field arrives here as null rather than a default.
+        if (question.correctIndex() == null
+                || question.correctIndex() < 0 || question.correctIndex() >= OPTIONS_PER_QUESTION) {
+            throw new IllegalStateException(
+                    "Model returned a missing or out-of-range correctIndex (" + question.correctIndex() + "): " + question.question());
         }
     }
 

@@ -9,6 +9,7 @@ import com.corpusai.document.InvalidFileTypeException;
 import com.corpusai.flashcards.FlashcardSetNotFoundException;
 import com.corpusai.quiz.QuizAlreadyCompletedException;
 import com.corpusai.quiz.QuizNotFoundException;
+import com.corpusai.rag.SubjectHasNoContentException;
 import com.corpusai.subject.DuplicateSubjectNameException;
 import com.corpusai.subject.SubjectNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -89,6 +90,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(QuizAlreadyCompletedException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleQuizAlreadyCompleted(QuizAlreadyCompletedException ex) {
+        return new ErrorResponse("CONFLICT", ex.getMessage());
+    }
+
+    // 409, not 500: the request is well-formed and authorised, but the subject has nothing
+    // ingested yet to generate from. A conflict with resource state the client can act on
+    // (upload documents first) rather than a server fault.
+    @ExceptionHandler(SubjectHasNoContentException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleSubjectHasNoContent(SubjectHasNoContentException ex) {
         return new ErrorResponse("CONFLICT", ex.getMessage());
     }
 
