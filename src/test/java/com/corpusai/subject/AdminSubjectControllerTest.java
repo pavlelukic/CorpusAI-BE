@@ -4,6 +4,7 @@ import com.corpusai.auth.Role;
 import com.corpusai.auth.User;
 import com.corpusai.auth.UserRepository;
 import com.corpusai.ingestion.StorageProperties;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -120,6 +122,53 @@ class AdminSubjectControllerTest {
                                 """.formatted(displayName)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("CONFLICT"));
+    }
+
+    @Test
+    void nonAdminCannotListSubjects() throws Exception {
+        String userToken = registerAndLogin(uniqueEmail());
+
+        mockMvc.perform(get("/api/admin/subjects")
+                        .header("Authorization", "Bearer " + userToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
+
+    @Test
+    void adminListIncludesArchivedSubjectsWithSystemPrompt() throws Exception {
+        String adminToken = createAdminAndLogin();
+        String displayName = "MockMvc List Subject " + UUID.randomUUID();
+
+        String createBody = mockMvc.perform(post("/api/admin/subjects")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"displayName":"%s","displayNameSr":"SR Name","systemPrompt":"Custom list prompt"}
+                                """.formatted(displayName)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String subjectId = objectMapper.readTree(createBody).get("id").asText();
+        createdSubjectIds.add(subjectId);
+
+        mockMvc.perform(delete("/api/admin/subjects/{id}", subjectId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+
+        String listBody = mockMvc.perform(get("/api/admin/subjects")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        JsonNode mine = null;
+        for (JsonNode node : objectMapper.readTree(listBody)) {
+            if (subjectId.equals(node.get("id").asText())) {
+                mine = node;
+                break;
+            }
+        }
+        assertThat(mine).as("archived subject should still appear in the admin list").isNotNull();
+        assertThat(mine.get("archived").asBoolean()).isTrue();
+        assertThat(mine.get("systemPrompt").asText()).isEqualTo("Custom list prompt");
     }
 
     @Test
