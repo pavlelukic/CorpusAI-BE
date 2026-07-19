@@ -30,6 +30,10 @@ public class SubjectService {
         return subjectRepository.findAllByArchivedFalseOrderByCreatedAtAsc();
     }
 
+    public List<Subject> listAllIncludingArchived() {
+        return subjectRepository.findAllByOrderByCreatedAtAsc();
+    }
+
     public Subject findById(String subjectId) {
         return subjectRepository.findById(subjectId)
                 .orElseThrow(() -> new SubjectNotFoundException(subjectId));

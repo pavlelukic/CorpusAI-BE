@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface SubjectRepository extends JpaRepository<Subject, String> {
     List<Subject> findAllByArchivedFalseOrderByCreatedAtAsc();
+
+    List<Subject> findAllByOrderByCreatedAtAsc();
 }

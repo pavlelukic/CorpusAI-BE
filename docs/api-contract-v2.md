@@ -482,6 +482,15 @@ No request body. Errors: `400` (non-UUID `userId`), `403`, `404` (unknown user o
 Revokes access. **Idempotent** — revoking a grant that doesn't exist is still `204`.
 Errors: `400`, `403`.
 
+### `GET /api/admin/subjects` → `200`
+
+The admin subject list — returns `AdminSubjectResponse[]` (defined below), **oldest first**. This
+is the only endpoint that exposes each subject's `systemPrompt` and includes **archived** subjects;
+the student `GET /api/subjects` hides both. Use it for the admin Subjects table and to prefill the
+Edit form's prompt field.
+
+Errors: `403`.
+
 ### `POST /api/admin/subjects` → `201`
 
 ```ts
