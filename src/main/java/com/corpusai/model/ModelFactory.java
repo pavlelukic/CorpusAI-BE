@@ -29,6 +29,16 @@ public class ModelFactory {
     private static final Set<String> MODELS_ACCEPTING_TEMPERATURE =
             Set.of("gpt-5.4-mini", "gpt-4.1", "gpt-4o-mini", "claude-haiku-4-5");
 
+    // Anthropic's API requires max_tokens, so langchain4j substitutes its own default of 1024 when
+    // the builder leaves it unset - a ceiling low enough to truncate real output. It cut chat replies
+    // off mid-word (the stream still ended with a normal 'done', so it read as a complete answer) and
+    // made flashcard/quiz generation fail outright above ~5 cards: the JSON stopped mid-string and
+    // every GenerationRetrier attempt hit the same wall, since a token cap is deterministic. The same
+    // 20-card request needs ~1195 output tokens on OpenAI, well past 1024. Set explicitly per role.
+    // OpenAI is deliberately left alone - it omits the field and applies its own, far larger, default.
+    private static final int ANTHROPIC_MAX_TOKENS_CHAT = 4096;
+    private static final int ANTHROPIC_MAX_TOKENS_GENERATION = 8192;
+
     private final String openAiApiKey;
     private final String anthropicApiKey;
 
@@ -93,10 +103,13 @@ public class ModelFactory {
             // output, so AiServices instead appends prompt-based JSON format instructions. Structured
             // callers (e.g. FlashcardGenerator) therefore return a POJO wrapper rather than a bare
             // List, since langchain4j's collection format-instructions path is unimplemented.
+            // Serves both flashcard/quiz generation and RAG compression. The generation ceiling
+            // applies to both: it is a cap, not a reservation, and compression output is short.
             case ANTHROPIC -> AnthropicChatModel.builder()
                     .apiKey(anthropicApiKey)
                     .modelName(modelName)
                     .temperature(temperatureFor(modelName))
+                    .maxTokens(ANTHROPIC_MAX_TOKENS_GENERATION)
                     .build();
         };
     }
@@ -112,6 +125,7 @@ public class ModelFactory {
                     .apiKey(anthropicApiKey)
                     .modelName(modelName)
                     .temperature(temperatureFor(modelName))
+                    .maxTokens(ANTHROPIC_MAX_TOKENS_CHAT)
                     .build();
         };
     }
