@@ -2,6 +2,8 @@ package com.corpusai.chat;
 
 import com.corpusai.auth.AuthenticatedUser;
 import com.corpusai.auth.SubjectAccessService;
+import com.corpusai.metrics.LlmUsage;
+import com.corpusai.metrics.LlmUsageRepository;
 import com.corpusai.model.ModelFactory;
 import com.corpusai.model.ModelProvider;
 import com.corpusai.rag.RetrievalAugmentorFactory;
@@ -14,7 +16,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -29,6 +33,7 @@ public class ChatService {
     private final SubjectAccessService subjectAccessService;
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final LlmUsageRepository llmUsageRepository;
 
     public ChatService(ModelFactory modelFactory,
                        RetrievalAugmentorFactory retrievalAugmentorFactory,
@@ -36,7 +41,8 @@ public class ChatService {
                        SubjectService subjectService,
                        SubjectAccessService subjectAccessService,
                        ChatSessionRepository chatSessionRepository,
-                       ChatMessageRepository chatMessageRepository) {
+                       ChatMessageRepository chatMessageRepository,
+                       LlmUsageRepository llmUsageRepository) {
         this.modelFactory = modelFactory;
         this.retrievalAugmentorFactory = retrievalAugmentorFactory;
         this.chatMemoryRegistry = chatMemoryRegistry;
@@ -44,6 +50,7 @@ public class ChatService {
         this.subjectAccessService = subjectAccessService;
         this.chatSessionRepository = chatSessionRepository;
         this.chatMessageRepository = chatMessageRepository;
+        this.llmUsageRepository = llmUsageRepository;
     }
 
     public ChatSession createSession(AuthenticatedUser principal, String subjectId, String lang, ModelProvider provider) {
@@ -96,9 +103,24 @@ public class ChatService {
         return chatSessionRepository.findAllByUserIdAndSubjectIdOrderByUpdatedAtDesc(principal.id(), subjectId);
     }
 
-    public List<ChatMessage> getTranscript(AuthenticatedUser principal, UUID sessionId) {
+    // Each message paired with the usage row that paid for it, or null where there is none: every
+    // USER message, and any assistant reply from before usage rows carried a message id.
+    public record TranscriptEntry(ChatMessage message, LlmUsage usage) {
+    }
+
+    public List<TranscriptEntry> getTranscript(AuthenticatedUser principal, UUID sessionId) {
         ChatSession session = resolveOwnedSession(principal, sessionId);
-        return chatMessageRepository.findAllBySessionIdOrderByCreatedAtAsc(session.getId());
+        List<ChatMessage> messages = chatMessageRepository.findAllBySessionIdOrderByCreatedAtAsc(session.getId());
+
+        // Merge keeps the first row rather than throwing. Nothing should write two usage rows for one
+        // message, but a duplicate must degrade to "one set of stats", not a 500 on the whole transcript.
+        Map<UUID, LlmUsage> usageByMessageId = llmUsageRepository
+                .findBySessionIdAndMessageIdIsNotNull(session.getId()).stream()
+                .collect(Collectors.toMap(LlmUsage::getMessageId, usage -> usage, (first, second) -> first));
+
+        return messages.stream()
+                .map(message -> new TranscriptEntry(message, usageByMessageId.get(message.getId())))
+                .toList();
     }
 
     public void deleteSession(AuthenticatedUser principal, UUID sessionId) {

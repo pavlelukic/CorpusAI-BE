@@ -199,9 +199,23 @@ interface ChatMessageResponse {
   role: MessageRole;
   content: string;
   createdAt: Instant;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  latencyMs: number | null;
+  model: string | null;      // e.g. "claude-haiku-4-5" — what actually ran, not inferred
 }
 // → ChatMessageResponse[]  (chronological)
 ```
+
+The four usage fields let per-message stats survive a reload, a different device, or a
+different browser — the `done` event only reaches the client that streamed the reply.
+They carry what the turn actually cost, so `model` is the model that really ran rather
+than one guessed from the session's provider.
+
+**All four are null together, and are null for:** every `USER` message; assistant replies
+stored before this change (no usage row is tied to them); and any reply whose usage row
+failed to write. A provider that reports no token counts still yields a real `latencyMs`
+and `model` with both token fields null — so guard each field, not just the group.
 
 Errors: `400` (non-UUID id), `403` (not owner), `404` (unknown session).
 

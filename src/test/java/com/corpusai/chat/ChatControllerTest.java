@@ -7,6 +7,9 @@ import com.corpusai.auth.UserSubjectAccess;
 import com.corpusai.auth.UserSubjectAccessRepository;
 import com.corpusai.auth.UserSubjectId;
 import com.corpusai.ingestion.StorageProperties;
+import com.corpusai.metrics.LlmFeature;
+import com.corpusai.metrics.LlmUsage;
+import com.corpusai.metrics.LlmUsageRepository;
 import com.corpusai.model.ModelProvider;
 import com.corpusai.subject.Subject;
 import com.corpusai.subject.SubjectService;
@@ -24,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -67,6 +71,9 @@ class ChatControllerTest {
 
     @Autowired
     private ChatMessageRepository chatMessageRepository;
+
+    @Autowired
+    private LlmUsageRepository llmUsageRepository;
 
     private final List<String> createdSubjectIds = new ArrayList<>();
 
@@ -249,6 +256,110 @@ class ChatControllerTest {
                 .andExpect(jsonPath("$[0].content").value("hello"))
                 .andExpect(jsonPath("$[1].role").value("ASSISTANT"))
                 .andExpect(jsonPath("$[1].content").value("hi there"));
+    }
+
+    // The transcript is the only source of per-message stats after a reload - the done event is gone
+    // by then - so the join from message to usage row is what makes the frontend's stats line survive.
+    @Test
+    void getMessagesReturnsUsageStatsOnTheAssistantMessageAndNullsOnTheUserMessage() throws Exception {
+        Subject subject = createTestSubject();
+        User user = registerUser();
+        grantAccess(user, subject.getId());
+        String token = login(user.getEmail(), "password123");
+
+        ChatSession session = createFixtureSession(user, subject.getId());
+        chatMessageRepository.save(new ChatMessage(session.getId(), MessageRole.USER, "hello"));
+        ChatMessage reply = chatMessageRepository.save(
+                new ChatMessage(session.getId(), MessageRole.ASSISTANT, "hi there"));
+        llmUsageRepository.save(new LlmUsage(LlmFeature.CHAT, ModelProvider.ANTHROPIC, "claude-haiku-4-5",
+                312, 88, 400, 2400L, user.getId(), subject.getId(), session.getId(), reply.getId(), Instant.now()));
+
+        mockMvc.perform(get("/api/chats/{sessionId}/messages", session.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].role").value("USER"))
+                .andExpect(jsonPath("$[0].inputTokens").doesNotExist())
+                .andExpect(jsonPath("$[0].outputTokens").doesNotExist())
+                .andExpect(jsonPath("$[0].latencyMs").doesNotExist())
+                .andExpect(jsonPath("$[0].model").doesNotExist())
+                .andExpect(jsonPath("$[1].role").value("ASSISTANT"))
+                .andExpect(jsonPath("$[1].inputTokens").value(312))
+                .andExpect(jsonPath("$[1].outputTokens").value(88))
+                .andExpect(jsonPath("$[1].latencyMs").value(2400))
+                .andExpect(jsonPath("$[1].model").value("claude-haiku-4-5"));
+    }
+
+    // Replies stored before usage rows carried a message id must still render, just without stats.
+    @Test
+    void getMessagesReturnsNullStatsForAnAssistantMessageWithNoUsageRow() throws Exception {
+        Subject subject = createTestSubject();
+        User user = registerUser();
+        grantAccess(user, subject.getId());
+        String token = login(user.getEmail(), "password123");
+
+        ChatSession session = createFixtureSession(user, subject.getId());
+        chatMessageRepository.save(new ChatMessage(session.getId(), MessageRole.ASSISTANT, "older reply"));
+
+        mockMvc.perform(get("/api/chats/{sessionId}/messages", session.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].content").value("older reply"))
+                .andExpect(jsonPath("$[0].inputTokens").doesNotExist())
+                .andExpect(jsonPath("$[0].model").doesNotExist());
+    }
+
+    // A provider that reports no token counts still produces a row, and latency is measured by us
+    // rather than by the provider - so it must survive even when both token counts are null.
+    @Test
+    void getMessagesReturnsLatencyAndModelEvenWhenTheProviderReportedNoTokens() throws Exception {
+        Subject subject = createTestSubject();
+        User user = registerUser();
+        grantAccess(user, subject.getId());
+        String token = login(user.getEmail(), "password123");
+
+        ChatSession session = createFixtureSession(user, subject.getId());
+        ChatMessage reply = chatMessageRepository.save(
+                new ChatMessage(session.getId(), MessageRole.ASSISTANT, "no usage reported"));
+        llmUsageRepository.save(new LlmUsage(LlmFeature.CHAT, ModelProvider.OPENAI, "gpt-5.4-mini",
+                null, null, null, 1500L, user.getId(), subject.getId(), session.getId(), reply.getId(), Instant.now()));
+
+        mockMvc.perform(get("/api/chats/{sessionId}/messages", session.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].inputTokens").doesNotExist())
+                .andExpect(jsonPath("$[0].outputTokens").doesNotExist())
+                .andExpect(jsonPath("$[0].latencyMs").value(1500))
+                .andExpect(jsonPath("$[0].model").value("gpt-5.4-mini"));
+    }
+
+    // Usage rows from other sessions, and rows with no message id at all (flashcards, quizzes, query
+    // compression), must never leak onto a transcript message.
+    @Test
+    void getMessagesIgnoresUsageRowsFromOtherSessionsAndRowsWithoutAMessageId() throws Exception {
+        Subject subject = createTestSubject();
+        User user = registerUser();
+        grantAccess(user, subject.getId());
+        String token = login(user.getEmail(), "password123");
+
+        ChatSession session = createFixtureSession(user, subject.getId());
+        ChatSession otherSession = createFixtureSession(user, subject.getId());
+        ChatMessage reply = chatMessageRepository.save(
+                new ChatMessage(session.getId(), MessageRole.ASSISTANT, "reply"));
+
+        // Right message id, wrong session - the lookup is scoped by session, so this must not match.
+        llmUsageRepository.save(new LlmUsage(LlmFeature.CHAT, ModelProvider.OPENAI, "wrong-session-model",
+                1, 1, 2, 11L, user.getId(), subject.getId(), otherSession.getId(), reply.getId(), Instant.now()));
+        // Right session, no message id - a flashcard-style row that happens to carry a session id.
+        llmUsageRepository.save(new LlmUsage(LlmFeature.FLASHCARDS, ModelProvider.OPENAI, "no-message-model",
+                2, 2, 4, 22L, user.getId(), subject.getId(), session.getId(), null, Instant.now()));
+
+        mockMvc.perform(get("/api/chats/{sessionId}/messages", session.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].model").doesNotExist())
+                .andExpect(jsonPath("$[0].inputTokens").doesNotExist());
     }
 
     @Test

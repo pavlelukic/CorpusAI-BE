@@ -10,6 +10,10 @@ import java.util.UUID;
 
 public interface LlmUsageRepository extends JpaRepository<LlmUsage, UUID> {
 
+    // Backs the per-message stats on the transcript. Only chat rows carry a message_id, so the
+    // not-null check also keeps any future session-scoped feature out of the transcript join.
+    List<LlmUsage> findBySessionIdAndMessageIdIsNotNull(UUID sessionId);
+
     String AGGREGATE_COLUMNS = """
             COUNT(*) AS calls,
             COALESCE(SUM(input_tokens), 0) AS totalInputTokens,

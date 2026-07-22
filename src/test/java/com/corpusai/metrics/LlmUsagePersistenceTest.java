@@ -31,10 +31,11 @@ class LlmUsagePersistenceTest {
     void fullyPopulatedRowSurvivesRoundTrip() {
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
 
         LlmUsage usage = llmUsageRepository.save(new LlmUsage(
                 LlmFeature.CHAT, ModelProvider.ANTHROPIC, "claude-haiku-4-5",
-                120, 45, 165, 842L, userId, SUBJECT_ID, sessionId, Instant.now()));
+                120, 45, 165, 842L, userId, SUBJECT_ID, sessionId, messageId, Instant.now()));
 
         entityManager.flush();
         entityManager.clear();
@@ -51,6 +52,7 @@ class LlmUsagePersistenceTest {
         assertThat(reloaded.getUserId()).isEqualTo(userId);
         assertThat(reloaded.getSubjectId()).isEqualTo(SUBJECT_ID);
         assertThat(reloaded.getSessionId()).isEqualTo(sessionId);
+        assertThat(reloaded.getMessageId()).isEqualTo(messageId);
         assertThat(reloaded.getCreatedAt()).isNotNull();
     }
 
@@ -58,7 +60,7 @@ class LlmUsagePersistenceTest {
     void queryCompressionRowWithNoContextSurvivesRoundTrip() {
         LlmUsage usage = llmUsageRepository.save(new LlmUsage(
                 LlmFeature.QUERY_COMPRESSION, ModelProvider.OPENAI, "gpt-4o-mini",
-                null, null, null, 311L, null, null, null, Instant.now()));
+                null, null, null, 311L, null, null, null, null, Instant.now()));
 
         entityManager.flush();
         entityManager.clear();
@@ -75,5 +77,6 @@ class LlmUsagePersistenceTest {
         assertThat(reloaded.getUserId()).isNull();
         assertThat(reloaded.getSubjectId()).isNull();
         assertThat(reloaded.getSessionId()).isNull();
+        assertThat(reloaded.getMessageId()).isNull();
     }
 }
