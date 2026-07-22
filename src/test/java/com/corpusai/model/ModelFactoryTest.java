@@ -68,4 +68,30 @@ class ModelFactoryTest {
     void unknownModelIsBuiltWithoutATemperature() {
         assertThat(modelFactory.temperatureFor("some-future-model-9000")).isNull();
     }
+
+    // Anthropic's API requires max_tokens, so langchain4j silently substitutes 1024 when the builder
+    // omits it. That ceiling truncated chat replies mid-word and made 10+ card flashcard/quiz
+    // generation fail every retry on unparseable JSON - a live-only failure, exactly like the
+    // temperature case above. Asserted on the built model rather than on the constants so that
+    // dropping the builder call fails here even if the constants survive.
+    @Test
+    void anthropicModelsAreBuiltWithAnExplicitMaxTokensWellAboveTheLangchainDefault() {
+        var generation = modelFactory.chatModel(ModelProvider.ANTHROPIC,
+                modelFactory.generationModelName(ModelProvider.ANTHROPIC));
+        var chat = modelFactory.streamingChatModel(ModelProvider.ANTHROPIC,
+                modelFactory.chatModelName(ModelProvider.ANTHROPIC));
+
+        assertThat(generation.defaultRequestParameters().maxOutputTokens()).isEqualTo(8192);
+        assertThat(chat.defaultRequestParameters().maxOutputTokens()).isEqualTo(4096);
+    }
+
+    // OpenAI has no such default - it omits the field and lets the model apply its own, far larger
+    // limit - so it must stay uncapped. Pinned to stop the Anthropic fix being "helpfully" mirrored.
+    @Test
+    void openAiModelsAreLeftUncapped() {
+        var generation = modelFactory.chatModel(ModelProvider.OPENAI,
+                modelFactory.generationModelName(ModelProvider.OPENAI));
+
+        assertThat(generation.defaultRequestParameters().maxOutputTokens()).isNull();
+    }
 }
