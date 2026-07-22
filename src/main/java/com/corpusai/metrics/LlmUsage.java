@@ -53,6 +53,11 @@ public class LlmUsage {
     @Column(name = "session_id")
     private UUID sessionId;
 
+    // The assistant message this row paid for; null for every feature except chat. A soft reference,
+    // not a foreign key - see V10 for why these rows must outlive the message they point at.
+    @Column(name = "message_id")
+    private UUID messageId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -62,7 +67,7 @@ public class LlmUsage {
 
     public LlmUsage(LlmFeature feature, ModelProvider provider, String model, Integer inputTokens,
                      Integer outputTokens, Integer totalTokens, long latencyMs, UUID userId,
-                     String subjectId, UUID sessionId, Instant createdAt) {
+                     String subjectId, UUID sessionId, UUID messageId, Instant createdAt) {
         this.feature = feature;
         this.provider = provider;
         this.model = model;
@@ -73,6 +78,7 @@ public class LlmUsage {
         this.userId = userId;
         this.subjectId = subjectId;
         this.sessionId = sessionId;
+        this.messageId = messageId;
         this.createdAt = createdAt;
     }
 
@@ -118,6 +124,10 @@ public class LlmUsage {
 
     public UUID getSessionId() {
         return sessionId;
+    }
+
+    public UUID getMessageId() {
+        return messageId;
     }
 
     public Instant getCreatedAt() {

@@ -169,11 +169,11 @@ class MetricsControllerTest {
         String adminToken = createAdminAndLogin();
         Instant t = Instant.now();
         llmUsageRepository.save(new LlmUsage(LlmFeature.CHAT, ModelProvider.OPENAI, "gpt-4o-mini",
-                1, 1, 2, 111L, null, null, null, t.minusSeconds(10)));
+                1, 1, 2, 111L, null, null, null, null, t.minusSeconds(10)));
         llmUsageRepository.save(new LlmUsage(LlmFeature.CHAT, ModelProvider.OPENAI, "gpt-4o-mini",
-                5, 5, 10, 555L, null, null, null, t));
+                5, 5, 10, 555L, null, null, null, null, t));
         llmUsageRepository.save(new LlmUsage(LlmFeature.CHAT, ModelProvider.OPENAI, "gpt-4o-mini",
-                9, 9, 18, 999L, null, null, null, t.plusSeconds(10)));
+                9, 9, 18, 999L, null, null, null, null, t.plusSeconds(10)));
 
         mockMvc.perform(get("/api/admin/metrics")
                         .param("from", t.minusSeconds(5).toString())
@@ -252,13 +252,13 @@ class MetricsControllerTest {
 
     private void seedFourRows(Instant base) {
         llmUsageRepository.save(new LlmUsage(LlmFeature.CHAT, ModelProvider.OPENAI, "gpt-4o-mini",
-                10, 5, 15, 100L, null, null, null, base));
+                10, 5, 15, 100L, null, null, null, null, base));
         llmUsageRepository.save(new LlmUsage(LlmFeature.CHAT, ModelProvider.OPENAI, "gpt-4o-mini",
-                20, 10, 30, 200L, null, null, null, base.plusSeconds(1)));
+                20, 10, 30, 200L, null, null, null, null, base.plusSeconds(1)));
         llmUsageRepository.save(new LlmUsage(LlmFeature.FLASHCARDS, ModelProvider.ANTHROPIC, "claude-haiku-4-5",
-                30, 15, 45, 300L, null, null, null, base.plusSeconds(2)));
+                30, 15, 45, 300L, null, null, null, null, base.plusSeconds(2)));
         llmUsageRepository.save(new LlmUsage(LlmFeature.QUIZ, ModelProvider.ANTHROPIC, "claude-haiku-4-5",
-                40, 20, 60, 400L, null, null, null, base.plusSeconds(3)));
+                40, 20, 60, 400L, null, null, null, null, base.plusSeconds(3)));
     }
 
     private User registerUser() {

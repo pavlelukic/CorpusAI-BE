@@ -8,6 +8,7 @@ import com.corpusai.chat.dto.ChatSessionResponse;
 import com.corpusai.chat.dto.CreateChatSessionRequest;
 import com.corpusai.chat.dto.SendMessageRequest;
 import com.corpusai.metrics.LlmFeature;
+import com.corpusai.metrics.LlmUsage;
 import com.corpusai.metrics.UsageRecorder;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -95,8 +96,10 @@ public class ChatController {
                         long latencyMs = Duration.between(startedAt, Instant.now()).toMillis();
                         UUID messageId = chatService.latestMessageId(sessionId);
                         var usage = response.tokenUsage();
+                        // Same id the done event reports below, so the transcript can show these
+                        // stats on the reply after a reload, not just to the client that streamed it.
                         usageRecorder.record(LlmFeature.CHAT, result.provider(), result.model(), usage, latencyMs,
-                                principal.id(), result.subjectId(), sessionId);
+                                principal.id(), result.subjectId(), sessionId, messageId);
                         emitter.send(SseEmitter.event()
                                 .name("done")
                                 .data(new ChatDoneResponse(messageId,
@@ -119,8 +122,15 @@ public class ChatController {
                 session.getLang(), session.getProvider(), session.getCreatedAt());
     }
 
-    private ChatMessageResponse toMessageResponse(ChatMessage message) {
-        return new ChatMessageResponse(message.getId(), message.getRole(), message.getContent(), message.getCreatedAt());
+    private ChatMessageResponse toMessageResponse(ChatService.TranscriptEntry entry) {
+        ChatMessage message = entry.message();
+        LlmUsage usage = entry.usage();
+        return new ChatMessageResponse(message.getId(), message.getRole(), message.getContent(),
+                message.getCreatedAt(),
+                usage != null ? usage.getInputTokens() : null,
+                usage != null ? usage.getOutputTokens() : null,
+                usage != null ? Long.valueOf(usage.getLatencyMs()) : null,
+                usage != null ? usage.getModel() : null);
     }
 
 }
